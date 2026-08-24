@@ -1,0 +1,19 @@
+{
+  "name": "ugur-musical-chess",
+  "version": "1.0.0",
+  "description": "Müzikal Satranç - Her kare bir nota, her taş bir süre değeri",
+  "type": "module",
+  "scripts": {
+    "start": "npx serve .",
+    "test": "node test_mapping.js"
+  },
+  "keywords": [
+    "chess",
+    "music",
+    "web-audio",
+    "midi",
+    "synth"
+  ],
+  "author": "",
+  "license": "MIT"
+}

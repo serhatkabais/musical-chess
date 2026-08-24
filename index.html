@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Müzikal Satranç - Musical Chess</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <!-- Chess.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header / Brand -->
+    <header class="app-header">
+      <div class="logo-group">
+        <div class="logo-icon">
+          <span class="chess-icon">♞</span>
+          <span class="music-note">♪</span>
+        </div>
+        <div>
+          <h1>Müzikal Satranç</h1>
+          <p class="subtitle">Her Kare Bir Nota, Her Hamle Bir Melodi</p>
+        </div>
+      </div>
+
+      <div class="header-controls">
+        <button id="btn-toggle-sound" class="btn btn-icon active" title="Sesi Aç/Kapat">
+          <span class="icon">🔊</span>
+        </button>
+        <button id="btn-toggle-labels" class="btn btn-secondary active" title="Karelerde Notaları Göster">
+          <span class="icon">🎵</span> Notaları Göster
+        </button>
+        <button id="btn-new-game" class="btn btn-danger">
+          <span class="icon">🔄</span> Yeni Oyun
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Left Panel: Chess Board -->
+      <section class="board-section">
+        <div class="game-status-bar" id="game-status-bar">
+          <div class="turn-indicator">
+            <span class="turn-dot white" id="turn-dot"></span>
+            <span id="turn-text">Sıra: Beyaz</span>
+          </div>
+          <div class="game-alert" id="game-alert"></div>
+        </div>
+
+        <div class="board-wrapper">
+          <!-- File labels top (A-H) -->
+          <div class="file-labels top">
+            <span>A</span><span>B</span><span>C</span><span>D</span><span>E</span><span>F</span><span>G</span><span>H</span>
+          </div>
+
+          <div class="board-middle">
+            <!-- Rank labels left (8-1) -->
+            <div class="rank-labels left">
+              <span>8</span><span>7</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span>
+            </div>
+
+            <!-- The 8x8 Chessboard Grid -->
+            <div id="chessboard" class="chessboard theme-classic"></div>
+
+            <!-- Rank labels right -->
+            <div class="rank-labels right">
+              <span>8</span><span>7</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span>
+            </div>
+          </div>
+
+          <!-- File labels bottom -->
+          <div class="file-labels bottom">
+            <span>A</span><span>B</span><span>C</span><span>D</span><span>E</span><span>F</span><span>G</span><span>H</span>
+          </div>
+        </div>
+
+        <!-- Current Move Sound Info Card -->
+        <div class="now-playing-card" id="now-playing-card">
+          <div class="np-left">
+            <div class="note-badge" id="np-note">C4</div>
+            <div class="np-details">
+              <span class="np-title" id="np-title">Son Hamle: e4</span>
+              <span class="np-sub" id="np-sub">Piyon (1/16'lık Süre - Onaltılık)</span>
+            </div>
+          </div>
+          <div class="np-wave" id="np-wave">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Panel: Musical Controls & Timeline -->
+      <aside class="control-panel">
+        
+        <!-- Tab Navigation -->
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="tab-music">🎵 Müzik & Synth</button>
+          <button class="tab-btn" data-tab="tab-masters">🏆 Usta Maçları</button>
+          <button class="tab-btn" data-tab="tab-history">📜 Hamle Bestesi</button>
+          <button class="tab-btn" data-tab="tab-rules">ℹ️ Kural Tablosu</button>
+        </div>
+
+        <!-- TAB 1: Müzik & Synth Ayarları -->
+        <div class="tab-content active" id="tab-music">
+          <div class="card">
+            <h3>Müzik Modu & Ölçü (Ritim)</h3>
+            <div class="control-row">
+              <label for="select-scale-mode">Müzikal Dizi / Makam</label>
+              <select id="select-scale-mode" class="form-select">
+                <option value="diatonic">🎼 Klasik Do-Majör (Diyatonik)</option>
+                <option value="pentatonic" selected>✨ Sihirli Pentatonik (Lo-Fi / Akıcı / Düzgün)</option>
+                <option value="dramatic_minor">⚔️ Dramatik Minör (Epik Savaş)</option>
+                <option value="harmonic_minor">🏛️ Barok Armonik Minör (Bach / Klasik)</option>
+                <option value="lydian">🌌 Sinematik Lydian (Rüya Atmosferi)</option>
+              </select>
+            </div>
+
+            <div class="control-row" style="margin-top: 6px;">
+              <label for="select-time-signature">Beste Ölçüsü (Time Signature)</label>
+              <select id="select-time-signature" class="form-select">
+                <option value="2/4">🥁 2/4'lük Versiyon (Marş / Allegro Canlı)</option>
+                <option value="3/4">💃 3/4'lük Versiyon (Zarif Vals / Romantic)</option>
+                <option value="4/4" selected>🎼 4/4'lük Versiyon (Klasik / Senfonik Standart)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Beste & Armoni Ayarları</h3>
+            
+            <div class="control-toggle-row">
+              <div>
+                <strong>🎻 Akor & Bas Eşliği</strong>
+                <p class="small-text">Hamlelere derin bas ve sıcak yaylı akoru ekler.</p>
+              </div>
+              <input type="checkbox" id="check-accompaniment" checked class="form-checkbox">
+            </div>
+
+            <div class="control-toggle-row">
+              <div>
+                <strong>⏱️ Akıcı Ritmik Düzen (Quantize)</strong>
+                <p class="small-text">Hızlı notaları ölçüye bağlayıp melodik akıcılık sağlar.</p>
+              </div>
+              <input type="checkbox" id="check-quantized" checked class="form-checkbox">
+            </div>
+
+            <div class="control-toggle-row">
+              <div>
+                <strong>👥 Beyaz & Siyah Düet Modu</strong>
+                <p class="small-text">Beyaz ve Siyah taşlara farklı enstrüman tınıları verir.</p>
+              </div>
+              <input type="checkbox" id="check-duet" checked class="form-checkbox">
+            </div>
+
+            <div id="duet-instruments-group" class="control-duet-grid">
+              <div class="control-row">
+                <label for="select-white-inst">⚪ Beyaz Enstrümanı</label>
+                <select id="select-white-inst" class="form-select">
+                  <option value="piano" selected>🎹 Akustik Piyano</option>
+                  <option value="marimba">🪵 Marimba</option>
+                  <option value="strings">🎻 Yaylılar</option>
+                  <option value="synthwave">🔮 Synth Lead</option>
+                </select>
+              </div>
+              <div class="control-row">
+                <label for="select-black-inst">⚫ Siyah Enstrümanı</label>
+                <select id="select-black-inst" class="form-select">
+                  <option value="electric-piano" selected>⚡ Elektrik Piyano (Rhodes)</option>
+                  <option value="marimba">🪵 Marimba</option>
+                  <option value="strings">🎻 Yaylılar</option>
+                  <option value="organ">🏛️ Kilise Orgu</option>
+                </select>
+              </div>
+            </div>
+
+            <div id="single-instrument-group" class="control-row hidden">
+              <label for="select-instrument">Tekil Enstrüman</label>
+              <select id="select-instrument" class="form-select">
+                <option value="piano">🎹 Akustik Piyano (Warm)</option>
+                <option value="electric-piano">⚡ Elektrik Piyano (Rhodes)</option>
+                <option value="marimba">🪵 Marimba / Perküsif</option>
+                <option value="strings">🎻 Yaylılar (Strings)</option>
+                <option value="synthwave">🔮 80s Synthwave (Lead)</option>
+                <option value="organ">🏛️ Kilise Orgu (Organ)</option>
+                <option value="8bit">👾 8-Bit Chiptune</option>
+              </select>
+            </div>
+
+            <div class="control-row">
+              <label for="input-tempo">Tempo (BPM): <strong id="bpm-val">120</strong></label>
+              <input type="range" id="input-tempo" min="60" max="240" value="120" class="form-range">
+            </div>
+
+            <div class="control-row">
+              <label for="input-volume">Ses Seviyesi: <strong id="vol-val">80%</strong></label>
+              <input type="range" id="input-volume" min="0" max="100" value="80" class="form-range">
+            </div>
+
+            <div class="control-row">
+              <label for="input-reverb">Reverb (Oda Yankısı): <strong id="reverb-val">40%</strong></label>
+              <input type="range" id="input-reverb" min="0" max="100" value="40" class="form-range">
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Tahta & Oyun Modu</h3>
+            
+            <div class="control-row">
+              <label for="select-mode">Oyun Modu</label>
+              <select id="select-mode" class="form-select">
+                <option value="pvp">👥 İki Kişilik (Pass & Play)</option>
+                <option value="ai-easy">🤖 Yapay Zekaya Karşı (Kolay)</option>
+                <option value="ai-med">🤖 Yapay Zekaya Karşı (Orta)</option>
+                <option value="free-play">🎹 Serbest Melodi Modu (Tıkla & Çal)</option>
+              </select>
+            </div>
+
+            <div class="control-row">
+              <label for="select-theme">Tahta Teması</label>
+              <select id="select-theme" class="form-select">
+                <option value="theme-classic">Klasik Ahşap</option>
+                <option value="theme-midnight">Gece Mavisi (Midnight)</option>
+                <option value="theme-synthwave">Cyber Neon (Synthwave)</option>
+                <option value="theme-emerald">Zümrüt Yeşili (Emerald)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>MIDI Çıkışı (Web MIDI)</h3>
+            <p class="small-text">Harici MIDI klavyeniz veya DAW programınız varsa MIDI sinyallerini yönlendirebilirsiniz.</p>
+            <div class="control-row">
+              <label for="select-midi-out">MIDI Çıkış Aygıtı</label>
+              <select id="select-midi-out" class="form-select">
+                <option value="">(MIDI aygıtı aranıyor...)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: Usta Maçları (Famous Historic Games) -->
+        <div class="tab-content" id="tab-masters">
+          <div class="card">
+            <h3>Tarihi Başyapıtlar & Notaları</h3>
+            <p class="small-text">Büyük ustaların tarihe geçen efsanevi maçlarını seçip adeta senfonik bir beste gibi dinleyin.</p>
+            
+            <div class="control-row">
+              <label for="select-famous-game">Efsanevi Maç Seçin</label>
+              <select id="select-famous-game" class="form-select">
+                <!-- Dynamically populated -->
+              </select>
+            </div>
+
+            <!-- Game Info Details Box -->
+            <div class="match-info-card" id="match-info-card">
+              <div class="match-title" id="match-title">Ölümsüz Oyun</div>
+              <div class="match-meta" id="match-meta">Anderssen vs. Kieseritzky (1851)</div>
+              <div class="match-opening" id="match-opening">Açılış: Kral Gambiti</div>
+              <p class="match-desc" id="match-desc">Satranç tarihinin en efsanevi romantik hücum maçı.</p>
+            </div>
+
+            <!-- Master Playback Controls -->
+            <div class="master-playback-group">
+              <div class="playback-progress-bar-wrap">
+                <div class="progress-info">
+                  <span>İlerleme: <strong id="master-move-num">0</strong> / <span id="master-total-moves">0</span> Hamle</span>
+                  <span id="master-status-badge" class="badge">Hazır</span>
+                </div>
+                <input type="range" id="master-progress-slider" min="0" max="100" value="0" class="form-range">
+              </div>
+
+              <div class="playback-controls">
+                <button id="btn-master-prev" class="btn btn-secondary" title="Önceki Hamle">
+                  <span class="icon">⏮</span>
+                </button>
+                <button id="btn-master-play" class="btn btn-primary" title="Otomatik Çal / Duraklat">
+                  <span class="icon">▶</span> Otomatik Oynat
+                </button>
+                <button id="btn-master-next" class="btn btn-secondary" title="Sonraki Hamle">
+                  <span class="icon">⏭</span>
+                </button>
+                <button id="btn-master-reset" class="btn btn-danger" title="Başa Al">
+                  <span class="icon">🔄</span> Başa Al
+                </button>
+              </div>
+
+              <div class="playback-controls" style="margin-top: 8px;">
+                <label style="width: 100%; font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">Bu Maçı MIDI Olarak İndir:</label>
+                <div class="midi-btn-group">
+                  <button class="btn btn-success btn-sm btn-export-version" data-target="master" data-sig="2/4" title="2/4 Marş Versiyonu İndir">
+                    <span class="icon">🥁</span> 2/4 İndir
+                  </button>
+                  <button class="btn btn-success btn-sm btn-export-version" data-target="master" data-sig="3/4" title="3/4 Vals Versiyonu İndir">
+                    <span class="icon">💃</span> 3/4 Vals İndir
+                  </button>
+                  <button class="btn btn-success btn-sm btn-export-version" data-target="master" data-sig="4/4" title="4/4 Klasik Versiyonu İndir">
+                    <span class="icon">🎼</span> 4/4 Klasik İndir
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: Hamle Bestesi & Replay & Dışa Aktarma -->
+        <div class="tab-content" id="tab-history">
+          <div class="card">
+            <div class="playback-header">
+              <h3>Beste Oynatıcı (Playback)</h3>
+              <span class="badge" id="move-count-badge">0 Nota</span>
+            </div>
+            
+            <div class="playback-controls">
+              <button id="btn-play-song" class="btn btn-primary" title="Tüm Oyunu Melodi Olarak Çal">
+                <span class="icon">▶</span> Besteyi Çal
+              </button>
+              <button id="btn-stop-song" class="btn btn-secondary" title="Durdur" disabled>
+                <span class="icon">⏹</span> Durdur
+              </button>
+            </div>
+
+            <div class="playback-controls" style="margin-top: 6px;">
+              <label style="width: 100%; font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">Bestenizi MIDI Olarak İndirin:</label>
+              <div class="midi-btn-group">
+                <button class="btn btn-success btn-sm btn-export-version" data-target="game" data-sig="2/4" title="2/4 Marş Versiyonu İndir">
+                  <span class="icon">🥁</span> 2/4 İndir
+                </button>
+                <button class="btn btn-success btn-sm btn-export-version" data-target="game" data-sig="3/4" title="3/4 Vals Versiyonu İndir">
+                  <span class="icon">💃</span> 3/4 Vals İndir
+                </button>
+                <button class="btn btn-success btn-sm btn-export-version" data-target="game" data-sig="4/4" title="4/4 Klasik Versiyonu İndir">
+                  <span class="icon">🎼</span> 4/4 Klasik İndir
+                </button>
+              </div>
+            </div>
+
+            <div class="timeline-container">
+              <label>Hamle & Nota Zaman Çizgisi</label>
+              <div class="moves-timeline" id="moves-timeline">
+                <div class="empty-timeline">Henüz hamle yapılmadı. Taş oynattıkça notalar buraya dizilecek!</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>PGN / Hamle Metni</h3>
+            <div class="pgn-box" id="pgn-display">Oyun başladığında hamleler burada listelenir.</div>
+          </div>
+        </div>
+
+        <!-- TAB 3: Kural Tablosu -->
+        <div class="tab-content" id="tab-rules">
+          <div class="card">
+            <h3>Sıra (Yatay) - Nota Eşleşmesi</h3>
+            <table class="rules-table">
+              <thead>
+                <tr>
+                  <th>Sıra (Rank)</th>
+                  <th>Başlangıç (A Sütunu)</th>
+                  <th>Bitiş (H Sütunu)</th>
+                  <th>Dizi (A -> H)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td><strong>1. Sıra (1)</strong></td><td>Do (C4)</td><td>Do (C5)</td><td>Do-Re-Mi-Fa-Sol-La-Si-Do</td></tr>
+                <tr><td><strong>2. Sıra (2)</strong></td><td>Re (D4)</td><td>Re (D5)</td><td>Re-Mi-Fa-Sol-La-Si-Do-Re</td></tr>
+                <tr><td><strong>3. Sıra (3)</strong></td><td>Mi (E4)</td><td>Mi (E5)</td><td>Mi-Fa-Sol-La-Si-Do-Re-Mi</td></tr>
+                <tr><td><strong>4. Sıra (4)</strong></td><td>Fa (F4)</td><td>Fa (F5)</td><td>Fa-Sol-La-Si-Do-Re-Mi-Fa</td></tr>
+                <tr><td><strong>5. Sıra (5)</strong></td><td>Sol (G4)</td><td>Sol (G5)</td><td>Sol-La-Si-Do-Re-Mi-Fa-Sol</td></tr>
+                <tr><td><strong>6. Sıra (6)</strong></td><td>La (A4)</td><td>La (A5)</td><td>La-Si-Do-Re-Mi-Fa-Sol-La</td></tr>
+                <tr><td><strong>7. Sıra (7)</strong></td><td>Si (B4)</td><td>Si (B5)</td><td>Si-Do-Re-Mi-Fa-Sol-La-Si</td></tr>
+                <tr><td><strong>8. Sıra (8)</strong></td><td>Do (C5)</td><td>Do (C6)</td><td>Do-Re-Mi-Fa-Sol-La-Si-Do</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="card">
+            <h3>Taş - Nota Süresi Eşleşmesi</h3>
+            <table class="rules-table">
+              <thead>
+                <tr>
+                  <th>Taş</th>
+                  <th>Süre</th>
+                  <th>Açıklama</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>♛ <strong>Vezir</strong></td><td><strong>4/4'lük</strong></td><td>Birlik Nota (4 vuruş / Uzun rezonans)</td></tr>
+                <tr><td>♜ <strong>Kale</strong></td><td><strong>2/4'lük</strong></td><td>Yarım Nota (2 vuruş)</td></tr>
+                <tr><td>♝ <strong>Fil</strong></td><td><strong>1/4'lük</strong></td><td>Dörtlük Nota (1 vuruş)</td></tr>
+                <tr><td>♞ <strong>At</strong></td><td><strong>1/8'lik</strong></td><td>Sekizlik Nota (0.5 vuruş)</td></tr>
+                <tr><td>♟ <strong>Piyon</strong></td><td><strong>1/16'lık</strong></td><td>Onaltılık Nota (0.25 vuruş)</td></tr>
+                <tr><td>♚ <strong>Şah</strong></td><td><strong>2/4'lük Akor</strong></td><td>Majör Üçlü Görkemli Ton</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </aside>
+    </main>
+
+    <!-- Promotion Modal -->
+    <div id="promotion-modal" class="modal-backdrop hidden">
+      <div class="modal-card">
+        <h3>Piyon Terfisi</h3>
+        <p>Hangi taşa dönüşsün?</p>
+        <div class="promotion-choices">
+          <button class="choice-btn" data-piece="q">♛ Vezir (4/4)</button>
+          <button class="choice-btn" data-piece="r">♜ Kale (2/4)</button>
+          <button class="choice-btn" data-piece="b">♝ Fil (1/4)</button>
+          <button class="choice-btn" data-piece="n">♞ At (1/8)</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Scripts -->
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
