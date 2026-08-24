@@ -4,8 +4,7 @@
   "description": "Müzikal Satranç - Her kare bir nota, her taş bir süre değeri",
   "type": "module",
   "scripts": {
-    "build": "echo 'Static build ready'",
-    "start": "node server.js",
+    "start": "node local-server.js",
     "test": "node test_mapping.js"
   },
   "keywords": [
