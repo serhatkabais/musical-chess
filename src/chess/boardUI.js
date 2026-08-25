@@ -1,23 +1,12 @@
 /**
- * Chessboard UI & Rendering Module
+ * Chessboard UI & Rendering Module (Symphonic & Makam Integration)
  */
 
-import { getSquareNote } from '../audio/noteMapping.js';
+import { getSquarePitch } from '../theory/squarePitchMapper.js';
 
-// Unicode chess symbols
 export const PIECE_UNICODE = {
-  p: '♟',
-  n: '♞',
-  b: '♝',
-  r: '♜',
-  q: '♛',
-  k: '♚',
-  P: '♙',
-  N: '♘',
-  B: '♗',
-  R: '♖',
-  Q: '♕',
-  K: '♔'
+  p: '♟', n: '♞', b: '♝', r: '♜', q: '♛', k: '♚',
+  P: '♙', N: '♘', B: '♗', R: '♖', Q: '♕', K: '♔'
 };
 
 export class BoardUI {
@@ -34,14 +23,10 @@ export class BoardUI {
     this.renderGrid();
   }
 
-  /**
-   * Initializes the 8x8 squares grid
-   */
   renderGrid() {
     this.container.innerHTML = '';
     const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 
-    // Rank 8 down to Rank 1 (standard chess orientation)
     for (let r = 8; r >= 1; r--) {
       for (let f = 0; f < 8; f++) {
         const squareName = `${files[f]}${r}`;
@@ -51,19 +36,16 @@ export class BoardUI {
         squareEl.className = `square ${isLight ? 'light' : 'dark'}`;
         squareEl.dataset.square = squareName;
 
-        // Note Label
-        const noteInfo = getSquareNote(squareName);
+        const pitchInfo = getSquarePitch(squareName);
         const labelEl = document.createElement('span');
         labelEl.className = 'sq-note-label';
-        labelEl.textContent = noteInfo.noteName;
+        labelEl.textContent = pitchInfo.noteName;
         squareEl.appendChild(labelEl);
 
-        // Click handler
-        squareEl.addEventListener('click', (e) => {
+        squareEl.addEventListener('click', () => {
           this.onSquareClick(squareName, squareEl);
         });
 
-        // Drag & drop handlers
         squareEl.addEventListener('dragover', (e) => e.preventDefault());
         squareEl.addEventListener('drop', (e) => {
           e.preventDefault();
@@ -78,10 +60,6 @@ export class BoardUI {
     }
   }
 
-  /**
-   * Updates pieces on the board based on chess.js board 2D array
-   * @param {Array<Array<{ type: string, color: 'w'|'b' }|null>>} boardState 
-   */
   updatePieces(boardState) {
     const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 
@@ -92,7 +70,6 @@ export class BoardUI {
         const squareEl = this.getSquareElement(squareName);
         if (!squareEl) continue;
 
-        // Clear existing piece element
         const existingPiece = squareEl.querySelector('.piece');
         if (existingPiece) {
           existingPiece.remove();
@@ -121,9 +98,6 @@ export class BoardUI {
     return this.container.querySelector(`.square[data-square="${square}"]`);
   }
 
-  /**
-   * Highlights selected square and valid destinations
-   */
   highlightLegalMoves(fromSquare, legalMoves) {
     this.clearHighlights();
     this.selectedSquare = fromSquare;
@@ -152,9 +126,6 @@ export class BoardUI {
     });
   }
 
-  /**
-   * Set last move highlight & sound wave ripple animation
-   */
   showMoveAnimation(from, to) {
     this.container.querySelectorAll('.square.last-move').forEach(sq => sq.classList.remove('last-move'));
 
@@ -170,9 +141,6 @@ export class BoardUI {
     }
   }
 
-  /**
-   * Pulse a square during music playback
-   */
   pulseSquare(square) {
     const el = this.getSquareElement(square);
     if (el) {
@@ -194,10 +162,10 @@ export class BoardUI {
     this.container.querySelectorAll('.square').forEach(sqEl => {
       const squareName = sqEl.dataset.square;
       if (squareName) {
-        const noteInfo = getSquareNote(squareName);
+        const p = getSquarePitch(squareName);
         const labelEl = sqEl.querySelector('.sq-note-label');
         if (labelEl) {
-          labelEl.textContent = noteInfo.noteName;
+          labelEl.textContent = p.noteName;
         }
       }
     });

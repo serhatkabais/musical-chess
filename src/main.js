@@ -1,14 +1,14 @@
 /**
- * Musical Chess Main Application Entry Point
+ * Symphonic & Makam Chess Composition Engine - Main Controller
  */
 
 import { ChessGame } from './chess/chessGame.js';
 import { BoardUI } from './chess/boardUI.js';
-import { soundEngine } from './audio/soundEngine.js';
-import { getSquareNote, PIECE_DURATIONS, setScaleMode } from './audio/noteMapping.js';
-import { downloadMidiFile } from './audio/midiExporter.js';
-import { setTimeSignature, getTimeSignature } from './audio/timeSignatures.js';
 import { FAMOUS_GAMES } from './chess/famousGames.js';
+import { quantumEventPool } from './audio/quantumEventPool.js';
+import { symphonicSynth } from './audio/symphonicSynth.js';
+import { downloadMidi, downloadMusicXml } from './audio/midiMusicXmlExporter.js';
+import { MAKAMS } from './theory/makamEngine.js';
 
 class App {
   constructor() {
@@ -19,12 +19,21 @@ class App {
       onPieceDrop: (from, to) => this.handlePieceDrop(from, to)
     });
 
+    // Composition Settings
+    this.currentMakamId = 'rast';
+    this.currentMeterId = '4/4';
+    this.currentEnsembleId = 'symphonic';
+    this.useRetroactiveTonic = true;
+    this.useSustainLayer = true;
+    this.useTensionEngine = true;
+    this.bpm = 120;
+
+    // Playback state
     this.isPlayingSong = false;
     this.songPlaybackTimer = null;
     this.pendingPromotion = null;
-    this.currentTimeSignature = '4/4';
 
-    // Master Games State
+    // Master Games state
     this.selectedFamousGame = FAMOUS_GAMES[0];
     this.masterCurrentMoveIndex = 0;
     this.isMasterPlaying = false;
@@ -33,17 +42,16 @@ class App {
     this.initUI();
     this.initMasterGamesUI();
     this.updateGameState();
+    this.updateCompositionTonicUI();
   }
 
   initUI() {
-    // 1. Controls & Header
-    document.getElementById('btn-new-game').addEventListener('click', () => this.startNewGame());
-    
+    // 1. Audio & Label Toggle
     const btnSound = document.getElementById('btn-toggle-sound');
     btnSound.addEventListener('click', () => {
-      const isMuted = soundEngine.toggleMute();
+      const isMuted = symphonicSynth.toggleMute();
       btnSound.classList.toggle('active', !isMuted);
-      btnSound.querySelector('.icon').textContent = isMuted ? '🔇' : '🔊';
+      btnSound.innerHTML = `<span class="icon">${isMuted ? '🔇' : '🔊'}</span>`;
     });
 
     const btnLabels = document.getElementById('btn-toggle-labels');
@@ -53,62 +61,64 @@ class App {
       btnLabels.classList.toggle('active', isShowing);
     });
 
-    // 2. Müzikal Skala / Gam Seçici
-    const selectScale = document.getElementById('select-scale-mode');
-    if (selectScale) {
-      selectScale.addEventListener('change', (e) => {
-        setScaleMode(e.target.value);
-        this.boardUI.refreshNoteLabels();
+    document.getElementById('btn-new-game').addEventListener('click', () => {
+      this.startNewGame();
+    });
+
+    // 2. Makam & Tonalite Selector
+    const selectMakam = document.getElementById('select-makam-mode');
+    if (selectMakam) {
+      selectMakam.addEventListener('change', (e) => {
+        this.currentMakamId = e.target.value;
+        this.updateCompositionTonicUI();
       });
     }
 
-    // 3. Armoni, Düet ve Ritm Ayarları
-    const checkAccompaniment = document.getElementById('check-accompaniment');
-    if (checkAccompaniment) {
-      checkAccompaniment.addEventListener('change', (e) => {
-        soundEngine.setAccompaniment(e.target.checked);
+    // 3. Orchestration / Saz Heyeti Selector
+    const selectOrch = document.getElementById('select-orchestration');
+    if (selectOrch) {
+      selectOrch.addEventListener('change', (e) => {
+        this.currentEnsembleId = e.target.value;
       });
     }
 
-    const checkQuantized = document.getElementById('check-quantized');
-    if (checkQuantized) {
-      checkQuantized.addEventListener('change', (e) => {
-        soundEngine.setQuantizedFlow(e.target.checked);
+    // 4. Meter Adapter / Zaman Ölçüsü Selector
+    const selectMeter = document.getElementById('select-time-signature');
+    if (selectMeter) {
+      selectMeter.addEventListener('change', (e) => {
+        this.currentMeterId = e.target.value;
       });
     }
 
-    const checkDuet = document.getElementById('check-duet');
-    const duetGroup = document.getElementById('duet-instruments-group');
-    const singleGroup = document.getElementById('single-instrument-group');
-    const selectWhiteInst = document.getElementById('select-white-inst');
-    const selectBlackInst = document.getElementById('select-black-inst');
-
-    const updateDuet = () => {
-      const isDuet = checkDuet ? checkDuet.checked : true;
-      if (duetGroup) duetGroup.classList.toggle('hidden', !isDuet);
-      if (singleGroup) singleGroup.classList.toggle('hidden', isDuet);
-      soundEngine.setDuetMode(
-        isDuet,
-        selectWhiteInst ? selectWhiteInst.value : 'piano',
-        selectBlackInst ? selectBlackInst.value : 'electric-piano'
-      );
-    };
-
-    if (checkDuet) checkDuet.addEventListener('change', updateDuet);
-    if (selectWhiteInst) selectWhiteInst.addEventListener('change', updateDuet);
-    if (selectBlackInst) selectBlackInst.addEventListener('change', updateDuet);
-
-    const selectInst = document.getElementById('select-instrument');
-    if (selectInst) {
-      selectInst.addEventListener('change', (e) => soundEngine.setInstrument(e.target.value));
+    // 5. Switches (Retroactive Tonic, Sustain Layer, Tension Engine)
+    const checkRetro = document.getElementById('check-retroactive-mutation');
+    if (checkRetro) {
+      checkRetro.addEventListener('change', (e) => {
+        this.useRetroactiveTonic = e.target.checked;
+        this.updateCompositionTonicUI();
+      });
     }
 
+    const checkSustain = document.getElementById('check-sustain-layer');
+    if (checkSustain) {
+      checkSustain.addEventListener('change', (e) => {
+        this.useSustainLayer = e.target.checked;
+      });
+    }
+
+    const checkTension = document.getElementById('check-tension-engine');
+    if (checkTension) {
+      checkTension.addEventListener('change', (e) => {
+        this.useTensionEngine = e.target.checked;
+      });
+    }
+
+    // 6. Sliders (Tempo, Volume, Reverb)
     const inputTempo = document.getElementById('input-tempo');
     const bpmVal = document.getElementById('bpm-val');
     inputTempo.addEventListener('input', (e) => {
-      const bpm = parseInt(e.target.value, 10);
-      bpmVal.textContent = bpm;
-      soundEngine.setTempo(bpm);
+      this.bpm = parseInt(e.target.value, 10);
+      bpmVal.textContent = this.bpm;
     });
 
     const inputVol = document.getElementById('input-volume');
@@ -116,7 +126,7 @@ class App {
     inputVol.addEventListener('input', (e) => {
       const val = parseInt(e.target.value, 10);
       volVal.textContent = `${val}%`;
-      soundEngine.setVolume(val / 100);
+      symphonicSynth.setVolume(val / 100);
     });
 
     const inputReverb = document.getElementById('input-reverb');
@@ -124,10 +134,10 @@ class App {
     inputReverb.addEventListener('input', (e) => {
       const val = parseInt(e.target.value, 10);
       reverbVal.textContent = `${val}%`;
-      soundEngine.setReverbLevel(val / 100);
+      symphonicSynth.setReverbLevel(val / 100);
     });
 
-    // 3. Game Mode & Theme
+    // 7. Mode & Theme
     const selectMode = document.getElementById('select-mode');
     selectMode.addEventListener('change', (e) => {
       this.game.mode = e.target.value;
@@ -139,22 +149,7 @@ class App {
       this.boardUI.setTheme(e.target.value);
     });
 
-    const selectMidiOut = document.getElementById('select-midi-out');
-    selectMidiOut.addEventListener('change', (e) => {
-      soundEngine.setMidiOutput(e.target.value);
-    });
-
-    // 4. Zaman Ölçüsü Seçici (Time Signature)
-    const selectTimeSig = document.getElementById('select-time-signature');
-    if (selectTimeSig) {
-      selectTimeSig.addEventListener('change', (e) => {
-        this.currentTimeSignature = e.target.value;
-        setTimeSignature(e.target.value);
-        soundEngine.setTimeSignature(e.target.value);
-      });
-    }
-
-    // 5. Tabs
+    // 8. Tabs
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -166,31 +161,61 @@ class App {
       });
     });
 
-    // 6. Playback & Export Buttons
+    // 9. Playback & Export Buttons (Game / History)
     document.getElementById('btn-play-song').addEventListener('click', () => this.playSong());
     document.getElementById('btn-stop-song').addEventListener('click', () => this.stopSong());
 
-    // Multi-version MIDI export buttons (2/4, 3/4, 4/4)
+    // Export MIDI Buttons (.btn-export-version)
     document.querySelectorAll('.btn-export-version').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', () => {
         const target = btn.dataset.target;
-        const sig = btn.dataset.sig || '4/4';
-        
+        const meterId = btn.dataset.sig || this.currentMeterId;
         if (target === 'master') {
-          this.exportMasterGameMidi(sig);
+          this.exportMasterMidi(meterId);
         } else {
-          if (this.game.moveHistory.length === 0) {
-            alert('Henüz hamle yapılmadı! Lütfen tahtada birkaç hamle oynayın.');
-            return;
-          }
-          downloadMidiFile(this.game.moveHistory, soundEngine.tempo, sig, 'my_chess_composition');
+          this.exportGameMidi(meterId);
         }
       });
     });
 
-    // 7. Promotion Modal
+    // Export MusicXML Buttons
+    const btnXmlMaster = document.getElementById('btn-export-xml-master');
+    if (btnXmlMaster) {
+      btnXmlMaster.addEventListener('click', () => this.exportMasterMusicXml());
+    }
+
+    const btnXmlGame = document.getElementById('btn-export-xml-game');
+    if (btnXmlGame) {
+      btnXmlGame.addEventListener('click', () => this.exportGameMusicXml());
+    }
+
+    // 10. Custom PGN Loader
+    const btnLoadPgn = document.getElementById('btn-load-custom-pgn');
+    const inputPgn = document.getElementById('input-custom-pgn');
+    if (btnLoadPgn && inputPgn) {
+      btnLoadPgn.addEventListener('click', () => {
+        const text = inputPgn.value;
+        if (!text.trim()) {
+          alert('Lütfen geçerli bir PGN metni yapıştırın.');
+          return;
+        }
+        const success = this.game.loadPgn(text);
+        if (success) {
+          this.updateGameState();
+          this.updateTimeline();
+          this.updateCompositionTonicUI();
+          this.setAlert('PGN Başarıyla Yüklendi ve Senfoniye Dönüştürüldü! 🎼');
+          // Switch to History tab
+          document.querySelector('.tab-btn[data-tab="tab-history"]').click();
+        } else {
+          alert('PGN formatı okunamadı. Lütfen standart PGN hamle formatını kontrol edin.');
+        }
+      });
+    }
+
+    // 11. Promotion Modal
     document.querySelectorAll('.choice-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', () => {
         const piece = btn.dataset.piece;
         this.completePromotion(piece);
       });
@@ -203,25 +228,40 @@ class App {
     this.boardUI.clearHighlights();
     this.updateGameState();
     this.updateTimeline();
+    this.updateCompositionTonicUI();
     this.setAlert('');
   }
 
   handleSquareClick(square) {
     if (this.isPlayingSong) return;
 
-    // Free Play Mode: Simply play note of the square with a default quarter note
     if (this.game.mode === 'free-play') {
-      soundEngine.playMoveNote(square, 'b');
-      this.boardUI.pulseSquare(square);
-      const note = getSquareNote(square);
-      this.updateNowPlaying(note.noteName, square, 'Serbest Nota (1/4\'lük)', 0.5);
+      quantumEventPool.buildFromGame([{ from: square, to: square, piece: 'q', san: square }]);
+      const rendered = quantumEventPool.renderComposition({
+        makamId: this.currentMakamId,
+        meterId: this.currentMeterId,
+        bpm: this.bpm,
+        ensembleId: this.currentEnsembleId,
+        useRetroactiveTonic: false
+      });
+      if (rendered[0]) {
+        symphonicSynth.playRenderedEvent(rendered[0]);
+        this.boardUI.pulseSquare(square);
+        this.updateNowPlaying(rendered[0]);
+      }
       return;
     }
 
-    if (this.game.isAiThinking) return;
+    if (this.boardUI.selectedSquare === null) {
+      const piece = this.getPieceOnSquare(square);
+      if (!piece) return;
+      if (piece.color !== this.game.getTurn()) return;
 
-    // If a square is already selected
-    if (this.boardUI.selectedSquare) {
+      const legalMoves = this.game.getLegalMoves(square);
+      if (legalMoves.length > 0) {
+        this.boardUI.highlightLegalMoves(square, legalMoves);
+      }
+    } else {
       const from = this.boardUI.selectedSquare;
       const to = square;
 
@@ -230,121 +270,135 @@ class App {
         return;
       }
 
-      // Check if it's a legal move
       const isLegal = this.boardUI.legalMoves.some(m => m.to === to);
       if (isLegal) {
-        this.attemptMove(from, to);
-        return;
+        if (this.isPromotionMove(from, to)) {
+          this.pendingPromotion = { from, to };
+          this.showPromotionModal();
+        } else {
+          this.executePlayerMove(from, to, 'q');
+        }
+      } else {
+        const piece = this.getPieceOnSquare(square);
+        if (piece && piece.color === this.game.getTurn()) {
+          const legalMoves = this.game.getLegalMoves(square);
+          this.boardUI.highlightLegalMoves(square, legalMoves);
+        } else {
+          this.boardUI.clearHighlights();
+        }
       }
-    }
-
-    // Try selecting pieces of the current turn
-    const legalMoves = this.game.getLegalMoves(square);
-    if (legalMoves.length > 0) {
-      this.boardUI.highlightLegalMoves(square, legalMoves);
-      // Play brief preview note for square
-      const note = getSquareNote(square);
-      soundEngine.playMoveNote(square, 'p');
-      this.updateNowPlaying(note.noteName, square, 'Kare Seçildi', 0.2);
-    } else {
-      this.boardUI.clearHighlights();
     }
   }
 
   handlePieceDrop(from, to) {
-    if (this.isPlayingSong || this.game.isAiThinking || this.game.mode === 'free-play') return;
-    this.attemptMove(from, to);
+    if (this.isPlayingSong || this.game.mode === 'free-play') return;
+
+    const legalMoves = this.game.getLegalMoves(from);
+    const isLegal = legalMoves.some(m => m.to === to);
+
+    if (isLegal) {
+      if (this.isPromotionMove(from, to)) {
+        this.pendingPromotion = { from, to };
+        this.showPromotionModal();
+      } else {
+        this.executePlayerMove(from, to, 'q');
+      }
+    } else {
+      this.boardUI.updatePieces(this.game.getBoard());
+    }
   }
 
-  attemptMove(from, to) {
-    // Check for pawn promotion (white pawn reaching rank 8 or black pawn reaching rank 1)
-    const pieceOnFrom = this.getPieceAtSquare(from);
-    if (pieceOnFrom && pieceOnFrom.type === 'p') {
-      if ((pieceOnFrom.color === 'w' && to.endsWith('8')) || (pieceOnFrom.color === 'b' && to.endsWith('1'))) {
-        this.pendingPromotion = { from, to };
-        document.getElementById('promotion-modal').classList.remove('hidden');
-        return;
-      }
-    }
+  isPromotionMove(from, to) {
+    const piece = this.getPieceOnSquare(from);
+    if (!piece || piece.type !== 'p') return false;
+    const toRank = to[1];
+    return (piece.color === 'w' && toRank === '8') || (piece.color === 'b' && toRank === '1');
+  }
 
-    this.executeMove(from, to, 'q');
+  showPromotionModal() {
+    document.getElementById('promotion-modal').classList.remove('hidden');
+  }
+
+  hidePromotionModal() {
+    document.getElementById('promotion-modal').classList.add('hidden');
   }
 
   completePromotion(pieceType) {
-    document.getElementById('promotion-modal').classList.add('hidden');
     if (this.pendingPromotion) {
       const { from, to } = this.pendingPromotion;
+      this.executePlayerMove(from, to, pieceType);
       this.pendingPromotion = null;
-      this.executeMove(from, to, pieceType);
+    }
+    this.hidePromotionModal();
+  }
+
+  executePlayerMove(from, to, promotion = 'q') {
+    const record = this.game.makeMove(from, to, promotion);
+    if (!record) return;
+
+    this.boardUI.clearHighlights();
+    this.boardUI.showMoveAnimation(from, to);
+    this.updateGameState();
+    this.updateTimeline();
+
+    // Render Event in Quantum Pool and Synthesize
+    quantumEventPool.buildFromGame(this.game.moveHistory);
+    const renderedList = quantumEventPool.renderComposition({
+      makamId: this.currentMakamId,
+      meterId: this.currentMeterId,
+      bpm: this.bpm,
+      ensembleId: this.currentEnsembleId,
+      useRetroactiveTonic: this.useRetroactiveTonic
+    });
+
+    const lastRendered = renderedList[renderedList.length - 1];
+    if (lastRendered) {
+      symphonicSynth.playRenderedEvent(lastRendered);
+      this.updateNowPlaying(lastRendered);
+    }
+    this.updateCompositionTonicUI();
+
+    // Trigger AI Move if mode is AI
+    if (!this.game.isGameOver() && this.game.mode.startsWith('ai-') && this.game.getTurn() === 'b') {
+      this.executeAiTurn();
     }
   }
 
-  getPieceAtSquare(square) {
-    const file = square.charCodeAt(0) - 'a'.charCodeAt(0);
-    const rank = 8 - parseInt(square[1], 10);
-    const board = this.game.getBoard();
-    return board[rank] ? board[rank][file] : null;
-  }
-
-  executeMove(from, to, promotion = 'q') {
-    const moveResult = this.game.makeMove(from, to, promotion);
-
-    if (moveResult) {
-      this.boardUI.clearHighlights();
-      this.boardUI.showMoveAnimation(from, to);
-
-      // Play Sound
-      const isCapture = Boolean(moveResult.captured);
-      soundEngine.playMoveNote(to, moveResult.piece, isCapture, moveResult.color);
-
-      // Update Now Playing HUD
-      const note = moveResult.noteInfo;
-      const dur = moveResult.durationInfo;
-      const pieceName = dur.name;
-      const pieceLabel = dur.label;
-      this.updateNowPlaying(
-        note.noteName,
-        `Hamle: ${moveResult.san} (${to.toUpperCase()})`,
-        `${pieceName} - ${pieceLabel} (${note.solfege})`,
-        dur.beats * (60 / soundEngine.tempo)
-      );
-
-      this.updateGameState();
-      this.updateTimeline();
-
-      // Check / Mate sounds
-      if (this.game.inCheckmate()) {
-        soundEngine.playAlertSound('mate');
-        this.setAlert('ŞAH MAT! Oyun Bitti.', true);
-        return;
-      } else if (this.game.inCheck()) {
-        soundEngine.playAlertSound('check');
-        this.setAlert('ŞAH!', true);
-      } else {
-        this.setAlert('');
-      }
-
-      // If AI mode and it's Black's turn, trigger bot move
-      if ((this.game.mode === 'ai-easy' || this.game.mode === 'ai-med') && this.game.getTurn() === 'b' && !this.game.isGameOver()) {
-        this.triggerAiMove();
-      }
-    } else {
-      this.boardUI.clearHighlights();
-    }
-  }
-
-  triggerAiMove() {
-    this.game.isAiThinking = true;
-    document.getElementById('turn-text').textContent = 'Sıra: Yapay Zeka Düşünüyor...';
-
+  executeAiTurn() {
+    this.setAlert('Yapay Zeka düşünüyor...');
     setTimeout(() => {
       const bestMove = this.game.getBestAiMove();
-      this.game.isAiThinking = false;
-
       if (bestMove) {
-        this.executeMove(bestMove.from, bestMove.to, bestMove.promotion || 'q');
+        const record = this.game.makeMove(bestMove.from, bestMove.to, bestMove.promotion || 'q');
+        if (record) {
+          this.boardUI.showMoveAnimation(bestMove.from, bestMove.to);
+          this.updateGameState();
+          this.updateTimeline();
+
+          quantumEventPool.buildFromGame(this.game.moveHistory);
+          const renderedList = quantumEventPool.renderComposition({
+            makamId: this.currentMakamId,
+            meterId: this.currentMeterId,
+            bpm: this.bpm,
+            ensembleId: this.currentEnsembleId,
+            useRetroactiveTonic: this.useRetroactiveTonic
+          });
+
+          const lastRendered = renderedList[renderedList.length - 1];
+          if (lastRendered) {
+            symphonicSynth.playRenderedEvent(lastRendered);
+            this.updateNowPlaying(lastRendered);
+          }
+          this.updateCompositionTonicUI();
+        }
       }
-    }, 600);
+      this.setAlert('');
+    }, 450);
+  }
+
+  getPieceOnSquare(square) {
+    if (!this.game.chess) return null;
+    return this.game.chess.get(square);
   }
 
   updateGameState() {
@@ -354,85 +408,124 @@ class App {
     const turnDot = document.getElementById('turn-dot');
     const turnText = document.getElementById('turn-text');
 
-    if (turn === 'w') {
-      turnDot.className = 'turn-dot white';
-      turnText.textContent = 'Sıra: Beyaz';
+    turnDot.className = `turn-dot ${turn === 'w' ? 'white' : 'black'}`;
+    turnText.textContent = `Sıra: ${turn === 'w' ? 'Beyaz' : 'Siyah'}`;
+
+    const alertEl = document.getElementById('game-alert');
+    if (this.game.inCheckmate()) {
+      alertEl.textContent = 'ŞAH MAT! Oyun Bitti 👑';
+      alertEl.className = 'game-alert check';
+    } else if (this.game.inDraw()) {
+      alertEl.textContent = 'BERABERE 🤝';
+      alertEl.className = 'game-alert';
+    } else if (this.game.inCheck()) {
+      alertEl.textContent = 'ŞAH ÇEKİLDİ! ⚠️';
+      alertEl.className = 'game-alert check';
     } else {
-      turnDot.className = 'turn-dot black';
-      turnText.textContent = 'Sıra: Siyah';
+      alertEl.textContent = '';
+      alertEl.className = 'game-alert';
     }
 
-    if (this.game.isGameOver()) {
-      if (this.game.inCheckmate()) {
-        turnText.textContent = `Mat! Kazanan: ${turn === 'w' ? 'Siyah' : 'Beyaz'}`;
-      } else if (this.game.inDraw()) {
-        turnText.textContent = 'Berabere (Pat / Yetersiz Materyal)';
-      }
-    }
-
-    // PGN Update
     const pgnEl = document.getElementById('pgn-display');
-    const pgn = this.game.getPgn();
-    pgnEl.textContent = pgn || 'Oyun başladığında hamleler burada listelenir.';
+    if (pgnEl) {
+      pgnEl.textContent = this.game.getPgn() || 'Henüz hamle yapılmadı.';
+    }
+
+    const badgeEl = document.getElementById('move-count-badge');
+    if (badgeEl) {
+      badgeEl.textContent = `${this.game.moveHistory.length} Nota`;
+    }
+  }
+
+  updateCompositionTonicUI() {
+    const tonicValEl = document.getElementById('tonic-val');
+    if (!tonicValEl) return;
+
+    if (quantumEventPool.finalTonic && this.useRetroactiveTonic) {
+      tonicValEl.textContent = `${quantumEventPool.finalTonic.nameTr} (${quantumEventPool.finalTonic.name})`;
+    } else {
+      const makam = MAKAMS[this.currentMakamId] || MAKAMS.rast;
+      tonicValEl.textContent = makam.name;
+    }
+  }
+
+  updateNowPlaying(renderedEvent) {
+    const noteEl = document.getElementById('current-note-display');
+    const moveEl = document.getElementById('current-move-display');
+    const durEl = document.getElementById('current-duration-display');
+    const tensionEl = document.getElementById('tension-val');
+    const waveEl = document.getElementById('audio-wave');
+
+    if (noteEl) {
+      const centsStr = renderedEvent.mutatedTarget.cents !== 0 ? ` (${renderedEvent.mutatedTarget.cents > 0 ? '+' : ''}${renderedEvent.mutatedTarget.cents}c)` : '';
+      noteEl.textContent = `${renderedEvent.targetPitch.noteName}${centsStr}`;
+    }
+
+    if (moveEl) {
+      moveEl.textContent = `Hamle: ${renderedEvent.san || renderedEvent.toSquare} [${renderedEvent.instrument.name}]`;
+    }
+
+    if (durEl) {
+      durEl.textContent = `${renderedEvent.articulation} • ${renderedEvent.mutatedTarget.degreeName}`;
+    }
+
+    if (tensionEl) {
+      tensionEl.textContent = `T: ${renderedEvent.boardTension} (${renderedEvent.dynamicMark})`;
+    }
+
+    if (waveEl) {
+      waveEl.classList.add('active');
+      setTimeout(() => waveEl.classList.remove('active'), 800);
+    }
   }
 
   updateTimeline() {
-    const timelineEl = document.getElementById('moves-timeline');
-    const badgeEl = document.getElementById('move-count-badge');
-    const history = this.game.moveHistory;
+    const container = document.getElementById('moves-timeline');
+    if (!container) return;
 
-    badgeEl.textContent = `${history.length} Nota`;
-
-    if (history.length === 0) {
-      timelineEl.innerHTML = '<div class="empty-timeline">Henüz hamle yapılmadı. Taş oynattıkça notalar buraya dizilecek!</div>';
+    if (this.game.moveHistory.length === 0) {
+      container.innerHTML = '<div class="empty-timeline">Henüz hamle yapılmadı. Taş oynattıkça senfonik notalar buraya dizilecek!</div>';
       return;
     }
 
-    timelineEl.innerHTML = '';
-    history.forEach((m, idx) => {
+    container.innerHTML = '';
+    this.game.moveHistory.forEach((rec, idx) => {
       const chip = document.createElement('div');
       chip.className = 'timeline-note-chip';
-      chip.dataset.index = idx;
       chip.innerHTML = `
-        <span class="chip-note">${m.noteInfo.noteName}</span>
-        <span class="chip-move">${m.san}</span>
-        <span class="chip-dur">${m.durationInfo.label}</span>
+        <span class="chip-note">${rec.pitchInfo.noteName}</span>
+        <span class="chip-move">${idx + 1}. ${rec.san}</span>
+        <span class="chip-dur">${rec.piece.toUpperCase()}</span>
       `;
       chip.addEventListener('click', () => {
-        soundEngine.playMoveNote(m.to, m.piece);
-        this.boardUI.pulseSquare(m.to);
+        quantumEventPool.buildFromGame(this.game.moveHistory.slice(0, idx + 1));
+        const rendered = quantumEventPool.renderComposition({
+          makamId: this.currentMakamId,
+          meterId: this.currentMeterId,
+          bpm: this.bpm,
+          ensembleId: this.currentEnsembleId,
+          useRetroactiveTonic: this.useRetroactiveTonic
+        });
+        const ev = rendered[rendered.length - 1];
+        if (ev) {
+          symphonicSynth.playRenderedEvent(ev);
+          this.boardUI.pulseSquare(rec.to);
+          this.updateNowPlaying(ev);
+        }
       });
-      timelineEl.appendChild(chip);
+      container.appendChild(chip);
     });
-
-    timelineEl.scrollTop = timelineEl.scrollHeight;
   }
 
-  updateNowPlaying(noteName, title, sub, durationSec) {
-    document.getElementById('np-note').textContent = noteName;
-    document.getElementById('np-title').textContent = title;
-    document.getElementById('np-sub').textContent = sub;
-
-    const waveEl = document.getElementById('np-wave');
-    waveEl.classList.add('active');
-    setTimeout(() => {
-      waveEl.classList.remove('active');
-    }, Math.max(durationSec * 1000, 400));
-  }
-
-  setAlert(text, isCheck = false) {
+  setAlert(text) {
     const alertEl = document.getElementById('game-alert');
-    alertEl.textContent = text;
-    alertEl.className = isCheck ? 'game-alert check' : 'game-alert';
+    if (alertEl) alertEl.textContent = text;
   }
 
-  /**
-   * Melodic Playback of the whole game sequence
-   */
-  async playSong() {
-    const history = this.game.moveHistory;
-    if (history.length === 0) {
-      alert('Bestelenecek hamle yok! Lütfen önce birkaç hamle yapın.');
+  // --- PLAYBACK COMPOSITION (SONG) ---
+  playSong() {
+    if (this.game.moveHistory.length === 0) {
+      alert('Henüz hamle yapılmadı! Lütfen tahtada birkaç hamle oynayın veya bir usta maçı seçin.');
       return;
     }
 
@@ -440,38 +533,36 @@ class App {
     document.getElementById('btn-play-song').disabled = true;
     document.getElementById('btn-stop-song').disabled = false;
 
-    let index = 0;
+    quantumEventPool.buildFromGame(this.game.moveHistory);
+    const renderedEvents = quantumEventPool.renderComposition({
+      makamId: this.currentMakamId,
+      meterId: this.currentMeterId,
+      bpm: this.bpm,
+      ensembleId: this.currentEnsembleId,
+      useRetroactiveTonic: this.useRetroactiveTonic
+    });
+
+    let currentStep = 0;
 
     const playNext = () => {
-      if (!this.isPlayingSong || index >= history.length) {
+      if (!this.isPlayingSong || currentStep >= renderedEvents.length) {
         this.stopSong();
         return;
       }
 
-      const move = history[index];
-      const durSec = PIECE_DURATIONS[move.piece] ? PIECE_DURATIONS[move.piece].beats * (60 / soundEngine.tempo) : 0.5;
+      const ev = renderedEvents[currentStep];
+      this.boardUI.pulseSquare(ev.toSquare);
+      this.boardUI.showMoveAnimation(ev.fromSquare, ev.toSquare);
+      symphonicSynth.playRenderedEvent(ev);
+      this.updateNowPlaying(ev);
 
-      // Pulse square & play note
-      soundEngine.playMoveNote(move.to, move.piece, Boolean(move.captured), move.color);
-      this.boardUI.pulseSquare(move.to);
+      // Highlight corresponding chip in timeline
+      const chips = document.querySelectorAll('.timeline-note-chip');
+      chips.forEach((c, idx) => c.classList.toggle('playing', idx === currentStep));
 
-      // Highlight timeline chip
-      document.querySelectorAll('.timeline-note-chip').forEach(c => c.classList.remove('playing'));
-      const activeChip = document.querySelector(`.timeline-note-chip[data-index="${index}"]`);
-      if (activeChip) {
-        activeChip.classList.add('playing');
-        activeChip.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }
-
-      this.updateNowPlaying(
-        move.noteInfo.noteName,
-        `Replay: ${move.san} (${move.to.toUpperCase()})`,
-        `${move.durationInfo.name} - ${move.durationInfo.label}`,
-        durSec
-      );
-
-      index++;
-      this.songPlaybackTimer = setTimeout(playNext, durSec * 1000);
+      const durationMs = ev.timing.totalDuration * 1000;
+      currentStep++;
+      this.songPlaybackTimer = setTimeout(playNext, Math.max(250, durationMs));
     };
 
     playNext();
@@ -483,78 +574,58 @@ class App {
       clearTimeout(this.songPlaybackTimer);
       this.songPlaybackTimer = null;
     }
-    document.getElementById('btn-play-song').disabled = false;
-    document.getElementById('btn-stop-song').disabled = true;
+    symphonicSynth.stopActiveSustains();
+    const btnPlay = document.getElementById('btn-play-song');
+    const btnStop = document.getElementById('btn-stop-song');
+    if (btnPlay) btnPlay.disabled = false;
+    if (btnStop) btnStop.disabled = true;
+
     document.querySelectorAll('.timeline-note-chip').forEach(c => c.classList.remove('playing'));
   }
 
-  // ==========================================
-  // MASTER GAMES (USTA MAÇLARI) CONTROLLER
-  // ==========================================
+  // --- MASTER GAMES UI & CONTROLLER ---
   initMasterGamesUI() {
-    const selectEl = document.getElementById('select-famous-game');
-    if (!selectEl) return;
+    const selectGames = document.getElementById('select-famous-game');
+    if (!selectGames) return;
 
-    selectEl.innerHTML = '';
+    selectGames.innerHTML = '';
     FAMOUS_GAMES.forEach((g) => {
       const opt = document.createElement('option');
       opt.value = g.id;
-      opt.textContent = `🏆 ${g.title} (${g.year})`;
-      selectEl.appendChild(opt);
+      opt.textContent = `${g.title} (${g.white} vs ${g.black}, ${g.year})`;
+      selectGames.appendChild(opt);
     });
 
-    selectEl.addEventListener('change', (e) => {
-      const match = FAMOUS_GAMES.find(g => g.id === e.target.value);
-      if (match) {
-        this.loadFamousGame(match);
+    selectGames.addEventListener('change', (e) => {
+      const found = FAMOUS_GAMES.find(g => g.id === e.target.value);
+      if (found) {
+        this.loadFamousGame(found);
       }
     });
 
-    // Master buttons
-    document.getElementById('btn-master-play').addEventListener('click', () => this.toggleMasterPlay());
     document.getElementById('btn-master-prev').addEventListener('click', () => this.stepMasterMove(-1));
     document.getElementById('btn-master-next').addEventListener('click', () => this.stepMasterMove(1));
+    document.getElementById('btn-master-play').addEventListener('click', () => this.toggleMasterPlay());
     document.getElementById('btn-master-reset').addEventListener('click', () => this.resetMasterGame());
-    
+
     const slider = document.getElementById('master-progress-slider');
     slider.addEventListener('input', (e) => {
-      const targetIndex = parseInt(e.target.value, 10);
-      this.seekMasterMove(targetIndex);
+      this.seekMasterMove(parseInt(e.target.value, 10));
     });
 
-    document.getElementById('btn-master-export-midi').addEventListener('click', () => {
-      if (!this.selectedFamousGame) return;
-      this.exportMasterGameMidi();
-    });
-
-    // Load initial game
-    this.loadFamousGame(this.selectedFamousGame);
+    this.loadFamousGame(FAMOUS_GAMES[0]);
   }
 
-  loadFamousGame(game) {
-    this.stopMasterPlay();
-    this.selectedFamousGame = game;
+  loadFamousGame(gameObj) {
+    this.stopMasterPlayback();
+    this.selectedFamousGame = gameObj;
     this.masterCurrentMoveIndex = 0;
 
-    // Update Info Card
-    document.getElementById('match-title').textContent = game.title;
-    document.getElementById('match-meta').textContent = `${game.white} vs. ${game.black} (${game.year}, ${game.event})`;
-    document.getElementById('match-opening').textContent = `Açılış: ${game.opening}`;
-    document.getElementById('match-desc').textContent = game.description;
+    document.getElementById('match-title').textContent = gameObj.title;
+    document.getElementById('match-meta').textContent = `${gameObj.white} vs. ${gameObj.black} (${gameObj.year}, ${gameObj.event})`;
+    document.getElementById('match-opening').textContent = `Açılış: ${gameObj.opening}`;
+    document.getElementById('match-desc').textContent = gameObj.description;
 
-    document.getElementById('master-total-moves').textContent = game.moves.length;
-    document.getElementById('master-move-num').textContent = '0';
-
-    const slider = document.getElementById('master-progress-slider');
-    slider.max = game.moves.length;
-    slider.value = 0;
-
-    this.resetMasterGame();
-  }
-
-  resetMasterGame() {
-    this.stopMasterPlay();
-    this.masterCurrentMoveIndex = 0;
     this.game.reset();
     this.boardUI.clearHighlights();
     this.updateGameState();
@@ -563,141 +634,192 @@ class App {
   }
 
   updateMasterProgressUI() {
-    document.getElementById('master-move-num').textContent = this.masterCurrentMoveIndex;
+    const total = this.selectedFamousGame.moves.length;
+    const current = this.masterCurrentMoveIndex;
+
+    const numEl = document.getElementById('master-move-num');
+    const totalEl = document.getElementById('master-total-moves');
     const slider = document.getElementById('master-progress-slider');
-    if (slider) slider.value = this.masterCurrentMoveIndex;
+    const badge = document.getElementById('master-status-badge');
+
+    if (numEl) numEl.textContent = current;
+    if (totalEl) totalEl.textContent = total;
+    if (slider) {
+      slider.max = total;
+      slider.value = current;
+    }
+    if (badge) {
+      badge.textContent = this.isMasterPlaying ? 'Senfoni Çalıyor 🎵' : (current === total ? 'Beste Tamamlandı' : 'Hazır');
+    }
   }
 
   toggleMasterPlay() {
     if (this.isMasterPlaying) {
-      this.stopMasterPlay();
+      this.stopMasterPlayback();
     } else {
-      this.startMasterPlay();
+      this.startMasterPlayback();
     }
   }
 
-  startMasterPlay() {
-    if (!this.selectedFamousGame) return;
+  startMasterPlayback() {
+    if (this.masterCurrentMoveIndex >= this.selectedFamousGame.moves.length) {
+      this.resetMasterGame();
+    }
+
     this.isMasterPlaying = true;
+    const btn = document.getElementById('btn-master-play');
+    if (btn) btn.innerHTML = '<span class="icon">⏸</span> Duraklat';
+    this.updateMasterProgressUI();
 
-    const playBtn = document.getElementById('btn-master-play');
-    playBtn.innerHTML = '<span class="icon">⏸</span> Duraklat';
-    document.getElementById('master-status-badge').textContent = 'Çalıyor...';
-
-    const playNext = () => {
-      if (!this.isMasterPlaying) return;
-
-      if (this.masterCurrentMoveIndex >= this.selectedFamousGame.moves.length) {
-        this.stopMasterPlay();
-        document.getElementById('master-status-badge').textContent = 'Tamamlandı';
+    const playLoop = () => {
+      if (!this.isMasterPlaying || this.masterCurrentMoveIndex >= this.selectedFamousGame.moves.length) {
+        this.stopMasterPlayback();
         return;
       }
 
-      const playedMove = this.stepMasterMove(1);
-      const piece = playedMove ? playedMove.piece : 'p';
-      const durSec = PIECE_DURATIONS[piece] ? PIECE_DURATIONS[piece].beats * (60 / soundEngine.tempo) : 0.4;
+      this.stepMasterMove(1);
 
-      this.masterTimer = setTimeout(playNext, Math.max(durSec * 1000, 300));
+      // Extract duration from timing
+      const move = this.selectedFamousGame.moves[this.masterCurrentMoveIndex - 1];
+      const speed = Math.max(300, (60000 / this.bpm) * 1.5);
+      this.masterTimer = setTimeout(playLoop, speed);
     };
 
-    playNext();
+    playLoop();
   }
 
-  stopMasterPlay() {
+  stopMasterPlayback() {
     this.isMasterPlaying = false;
     if (this.masterTimer) {
       clearTimeout(this.masterTimer);
       this.masterTimer = null;
     }
-    const playBtn = document.getElementById('btn-master-play');
-    if (playBtn) playBtn.innerHTML = '<span class="icon">▶</span> Otomatik Oynat';
-    const badge = document.getElementById('master-status-badge');
-    if (badge) badge.textContent = 'Duraklatıldı';
+    symphonicSynth.stopActiveSustains();
+    const btn = document.getElementById('btn-master-play');
+    if (btn) btn.innerHTML = '<span class="icon">▶</span> Otomatik Oynat';
+    this.updateMasterProgressUI();
   }
 
-  stepMasterMove(direction) {
-    const moves = this.selectedFamousGame.moves;
+  resetMasterGame() {
+    this.stopMasterPlayback();
+    this.masterCurrentMoveIndex = 0;
+    this.game.reset();
+    this.boardUI.clearHighlights();
+    this.updateGameState();
+    this.updateTimeline();
+    this.updateMasterProgressUI();
+  }
 
-    if (direction === 1) {
-      if (this.masterCurrentMoveIndex < moves.length) {
-        const nextMove = moves[this.masterCurrentMoveIndex];
-        const res = this.game.makeMove(nextMove.from, nextMove.to, nextMove.promotion || 'q');
-        
-        if (res) {
-          this.boardUI.showMoveAnimation(nextMove.from, nextMove.to);
-          soundEngine.playMoveNote(nextMove.to, res.piece, Boolean(res.captured), res.color);
-
-          const note = res.noteInfo;
-          const dur = res.durationInfo;
-          this.updateNowPlaying(
-            note.noteName,
-            `Usta Hamlesi: ${res.san} (${nextMove.to.toUpperCase()})`,
-            `${dur.name} - ${dur.label} (${note.solfege})`,
-            dur.beats * (60 / soundEngine.tempo)
-          );
-
-          this.masterCurrentMoveIndex++;
-          this.updateGameState();
-          this.updateTimeline();
-          this.updateMasterProgressUI();
-          return res;
-        }
-      }
-    } else if (direction === -1) {
-      if (this.masterCurrentMoveIndex > 0) {
-        this.seekMasterMove(this.masterCurrentMoveIndex - 1);
-      }
-    }
-    return null;
+  stepMasterMove(delta) {
+    const total = this.selectedFamousGame.moves.length;
+    const targetIndex = Math.min(total, Math.max(0, this.masterCurrentMoveIndex + delta));
+    this.seekMasterMove(targetIndex);
   }
 
   seekMasterMove(targetIndex) {
-    this.stopMasterPlay();
-    const moves = this.selectedFamousGame.moves;
-    const boundedIndex = Math.max(0, Math.min(targetIndex, moves.length));
-
     this.game.reset();
-    for (let i = 0; i < boundedIndex; i++) {
+    const moves = this.selectedFamousGame.moves;
+
+    for (let i = 0; i < targetIndex; i++) {
       const m = moves[i];
       this.game.makeMove(m.from, m.to, m.promotion || 'q');
     }
 
-    this.masterCurrentMoveIndex = boundedIndex;
-    this.boardUI.clearHighlights();
+    this.masterCurrentMoveIndex = targetIndex;
 
-    if (boundedIndex > 0) {
-      const last = moves[boundedIndex - 1];
+    if (targetIndex > 0) {
+      const last = moves[targetIndex - 1];
       this.boardUI.showMoveAnimation(last.from, last.to);
-      const lastRecord = this.game.moveHistory[this.game.moveHistory.length - 1];
-      if (lastRecord) {
-        soundEngine.playMoveNote(last.to, lastRecord.piece, Boolean(lastRecord.captured), lastRecord.color);
-        this.updateNowPlaying(
-          lastRecord.noteInfo.noteName,
-          `Usta Hamlesi: ${lastRecord.san}`,
-          `${lastRecord.durationInfo.name} - ${lastRecord.durationInfo.label}`,
-          0.3
-        );
+
+      quantumEventPool.buildFromGame(this.game.moveHistory);
+      const renderedList = quantumEventPool.renderComposition({
+        makamId: this.currentMakamId,
+        meterId: this.currentMeterId,
+        bpm: this.bpm,
+        ensembleId: this.currentEnsembleId,
+        useRetroactiveTonic: this.useRetroactiveTonic
+      });
+
+      const lastRendered = renderedList[renderedList.length - 1];
+      if (lastRendered) {
+        symphonicSynth.playRenderedEvent(lastRendered);
+        this.updateNowPlaying(lastRendered);
       }
     }
 
     this.updateGameState();
     this.updateTimeline();
     this.updateMasterProgressUI();
+    this.updateCompositionTonicUI();
   }
 
-  exportMasterGameMidi(timeSigId = '4/4') {
-    // Generate full move history for this famous game
+  // --- EXPORT CONTROLLERS ---
+  exportGameMidi(meterId = '4/4') {
+    if (this.game.moveHistory.length === 0) {
+      alert('Henüz hamle yapılmadı! Lütfen tahtada birkaç hamle oynayın.');
+      return;
+    }
+    quantumEventPool.buildFromGame(this.game.moveHistory);
+    const rendered = quantumEventPool.renderComposition({
+      makamId: this.currentMakamId,
+      meterId: meterId,
+      bpm: this.bpm,
+      ensembleId: this.currentEnsembleId,
+      useRetroactiveTonic: this.useRetroactiveTonic
+    });
+    downloadMidi(rendered, { bpm: this.bpm, meterId, title: 'My Chess Composition' }, `my_chess_${meterId.replace('/', '-')}.mid`);
+  }
+
+  exportMasterMidi(meterId = '4/4') {
     const tempGame = new ChessGame();
-    const moves = this.selectedFamousGame.moves;
-    for (const m of moves) {
+    for (const m of this.selectedFamousGame.moves) {
       tempGame.makeMove(m.from, m.to, m.promotion || 'q');
     }
-    downloadMidiFile(tempGame.moveHistory, soundEngine.tempo, timeSigId, `${this.selectedFamousGame.id}_melody`);
+    quantumEventPool.buildFromGame(tempGame.moveHistory);
+    const rendered = quantumEventPool.renderComposition({
+      makamId: this.currentMakamId,
+      meterId: meterId,
+      bpm: this.bpm,
+      ensembleId: this.currentEnsembleId,
+      useRetroactiveTonic: this.useRetroactiveTonic
+    });
+    downloadMidi(rendered, { bpm: this.bpm, meterId, title: this.selectedFamousGame.title }, `${this.selectedFamousGame.id}_${meterId.replace('/', '-')}.mid`);
+  }
+
+  exportGameMusicXml() {
+    if (this.game.moveHistory.length === 0) {
+      alert('Henüz hamle yapılmadı! Lütfen tahtada birkaç hamle oynayın.');
+      return;
+    }
+    quantumEventPool.buildFromGame(this.game.moveHistory);
+    const rendered = quantumEventPool.renderComposition({
+      makamId: this.currentMakamId,
+      meterId: this.currentMeterId,
+      bpm: this.bpm,
+      ensembleId: this.currentEnsembleId,
+      useRetroactiveTonic: this.useRetroactiveTonic
+    });
+    downloadMusicXml(rendered, { title: 'My Chess Score', composer: 'Musical Chess' }, 'my_chess_score.xml');
+  }
+
+  exportMasterMusicXml() {
+    const tempGame = new ChessGame();
+    for (const m of this.selectedFamousGame.moves) {
+      tempGame.makeMove(m.from, m.to, m.promotion || 'q');
+    }
+    quantumEventPool.buildFromGame(tempGame.moveHistory);
+    const rendered = quantumEventPool.renderComposition({
+      makamId: this.currentMakamId,
+      meterId: this.currentMeterId,
+      bpm: this.bpm,
+      ensembleId: this.currentEnsembleId,
+      useRetroactiveTonic: this.useRetroactiveTonic
+    });
+    downloadMusicXml(rendered, { title: this.selectedFamousGame.title, composer: `${this.selectedFamousGame.white} vs ${this.selectedFamousGame.black}` }, `${this.selectedFamousGame.id}_score.xml`);
   }
 }
 
-// Start app on DOMContentLoaded
+// Start application
 window.addEventListener('DOMContentLoaded', () => {
   window.app = new App();
 });
-
