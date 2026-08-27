@@ -359,54 +359,62 @@
         <!-- TAB 4: Kural & Manifesto Bilgisi -->
         <div class="tab-content" id="tab-rules">
           <div class="card">
-            <h3>📐 Tahta Geometrisi ➔ Nota Formülü</h3>
+            <h3>🏛️ Bölüm 1: Karşılıklı İki Hamle = Tek Ölçü (Diyalog)</h3>
+            <p class="small-text" style="line-height: 1.6;">
+              <strong>Temel Felsefe:</strong> Beyazın hamlesi (Ölçünün İlk Yarısı: 2 vuruş) ve Siyahın hamlesi (Ölçünün İkinci Yarısı: 2 vuruş) birleşerek <strong>1 Müzikal Ölçü</strong> oluşturur. Ölçü bittiğinde barline üzerinde tüm sesler <strong>Ölçü Kelepçesi</strong> ile kesin olarak kesilir.
+            </p>
+          </div>
+
+          <div class="card">
+            <h3>📐 Bölüm 2: Dikey Referans Nota Matrisi (Do Majör Tabanlı)</h3>
             <p class="small-text" style="line-height: 1.6; margin-bottom: 8px;">
-              <strong>Model:</strong> <code>row = rank(1..8), col = file(0..7)</code><br>
-              <code>row_start = [C4, D4, E4, F4, G4, A4, B4, C5][row - 1]</code><br>
-              Doğal diyatonik adım üzerinden C4'ten başlayarak tüm tahtaya kusursuz dağılır.
+              <strong>Dikey Geometri:</strong> 8 dikey hat (a-h sütunları), dikey çalgı telleri gibi çalışır. Notalar 1'den 8'e tırmanır:
             </p>
             <table class="rules-table">
               <thead>
                 <tr>
-                  <th>Sıra</th>
-                  <th>Başlangıç (A)</th>
-                  <th>Bitiş (H)</th>
-                  <th>Dizi (A ➔ H)</th>
+                  <th>Sütun (Tel)</th>
+                  <th>Kök (1. Sıra)</th>
+                  <th>Tiz (8. Sıra)</th>
+                  <th>Dizi (1 ➔ 8 Tırmanış)</th>
                 </tr>
               </thead>
               <tbody>
-                <tr><td><strong>1. Sıra (1)</strong></td><td>Do (C4)</td><td>Do (C5)</td><td>Do-Re-Mi-Fa-Sol-La-Si-Do</td></tr>
-                <tr><td><strong>2. Sıra (2)</strong></td><td>Re (D4)</td><td>Re (D5)</td><td>Re-Mi-Fa-Sol-La-Si-Do-Re</td></tr>
-                <tr><td><strong>3. Sıra (3)</strong></td><td>Mi (E4)</td><td>Mi (E5)</td><td>Mi-Fa-Sol-La-Si-Do-Re-Mi</td></tr>
-                <tr><td><strong>4. Sıra (4)</strong></td><td>Fa (F4)</td><td>Fa (F5)</td><td>Fa-Sol-La-Si-Do-Re-Mi-Fa</td></tr>
-                <tr><td><strong>5. Sıra (5)</strong></td><td>Sol (G4)</td><td>Sol (G5)</td><td>Sol-La-Si-Do-Re-Mi-Fa-Sol</td></tr>
-                <tr><td><strong>6. Sıra (6)</strong></td><td>La (A4)</td><td>La (A5)</td><td>La-Si-Do-Re-Mi-Fa-Sol-La</td></tr>
-                <tr><td><strong>7. Sıra (7)</strong></td><td>Si (B4)</td><td>Si (B5)</td><td>Si-Do-Re-Mi-Fa-Sol-La-Si</td></tr>
-                <tr><td><strong>8. Sıra (8)</strong></td><td>Do (C5)</td><td>Do (C6)</td><td>Do-Re-Mi-Fa-Sol-La-Si-Do</td></tr>
+                <tr><td><strong>a Sütunu (Do)</strong></td><td>Do (C4)</td><td>Do (C5)</td><td>a1(C4) - a2(D4) - a3(E4) ... a8(C5)</td></tr>
+                <tr><td><strong>b Sütunu (Re)</strong></td><td>Re (D4)</td><td>Re (D5)</td><td>b1(D4) - b2(E4) - b3(F4) ... b8(D5)</td></tr>
+                <tr><td><strong>c Sütunu (Mi)</strong></td><td>Mi (E4)</td><td>Mi (E5)</td><td>c1(E4) - c2(F4) - c3(G4) ... c8(E5)</td></tr>
+                <tr><td><strong>d Sütunu (Fa)</strong></td><td>Fa (F4)</td><td>Fa (F5)</td><td>d1(F4) - d2(G4) - d3(A4) ... d8(F5)</td></tr>
+                <tr><td><strong>e Sütunu (Sol)</strong></td><td>Sol (G4)</td><td>Sol (G5)</td><td>e1(G4) - e2(A4) - e3(B4) ... e8(G5)</td></tr>
+                <tr><td><strong>f Sütunu (La)</strong></td><td>La (A4)</td><td>La (A5)</td><td>f1(A4) - f2(B4) - f3(C5) ... f8(A5)</td></tr>
+                <tr><td><strong>g Sütunu (Si)</strong></td><td>Si (B4)</td><td>Si (B5)</td><td>g1(B4) - g2(C5) - g3(D5) ... g8(B5)</td></tr>
+                <tr><td><strong>h Sütunu (Do)</strong></td><td>Do (C5)</td><td>Do (C6)</td><td>h1(C5) - h2(D5) - h3(E5) ... h8(C6)</td></tr>
               </tbody>
             </table>
           </div>
 
           <div class="card">
-            <h3>🎻 Orkestrasyon & Tını Haritası</h3>
+            <h3>🎻 Bölüm 3, 4 & 5: Homojen Yaylı Grubu, Taş Motifleri & Taktikler</h3>
             <table class="rules-table">
               <thead>
                 <tr>
-                  <th>Taş / Olay</th>
-                  <th>Batı Senfonisi</th>
-                  <th>Makam Saz Heyeti</th>
+                  <th>Taş / Taktik</th>
+                  <th>Puan</th>
+                  <th>Ritmik Motif</th>
+                  <th>Yaylı Artikülasyonu</th>
                 </tr>
               </thead>
               <tbody>
-                <tr><td>♟ <strong>Piyon</strong></td><td>Violin Pizzicato</td><td>Kanun / Ud Mızrap</td></tr>
-                <tr><td>♞ <strong>At</strong></td><td>Clarinet & Flute</td><td>Ney (Nefesli)</td></tr>
-                <tr><td>♝ <strong>Fil</strong></td><td>Violins Legato</td><td>Yaylı Tanbur & Kanun</td></tr>
-                <tr><td>♜ <strong>Kale</strong></td><td>Cello & French Horn</td><td>Klasik Kemençe & Viyolonsel</td></tr>
-                <tr><td>♛ <strong>Vezir</strong></td><td>Full Strings & Brass</td><td>Kemençe, Ud & Yaylılar</td></tr>
-                <tr><td>♚ <strong>Şah</strong></td><td>Contrabass / Low Strings</td><td>Derin Ud & Pes Tanbur</td></tr>
-                <tr><td>⚔️ <strong>Taş Yeme</strong></td><td>Brass + Cymbals</td><td>Bendir & Zil Darbesi</td></tr>
-                <tr><td>⚠️ <strong>Şah Çekme</strong></td><td>Timpani Sforzando</td><td>Kudüm & Ney Aksanı</td></tr>
-                <tr><td>👑 <strong>Mat</strong></td><td>Full Orchestra Tutti</td><td>Tüm Saz Heyeti Karar Akoru</td></tr>
+                <tr><td>♟ <strong>Piyon (Tek Kare)</strong></td><td>1</td><td>Taa (1 Dörtlük)</td><td>Staccato / Pizzicato</td></tr>
+                <tr><td>♟ <strong>Piyon (İki Kare: e2-e4)</strong></td><td>1</td><td>ta-ta (2 Sekizlik)</td><td>Staccato İki Adım</td></tr>
+                <tr><td>♞ <strong>At</strong></td><td>3</td><td>Taa-ta-ta (1 Sekizlik + 2 Onaltılık)</td><td>Spiccato / Pizzicato Tırıs</td></tr>
+                <tr><td>♝ <strong>Fil (Kısa / Uzun)</strong></td><td>3</td><td>ta-ta-Taa / Sekizlik Arpej Zinciri</td><td>Legato / Detache Melodi</td></tr>
+                <tr><td>♜ <strong>Kale</strong></td><td>5</td><td>Taaam - Taaam (2 Ağır Dörtlük)</td><td>Detache Heavy / Yatay Glissando</td></tr>
+                <tr><td>♛ <strong>Vezir</strong></td><td>8</td><td>ta-ta-ta-ta ta-ta-ta-ta (8'li Şelale)</td><td>Legato Crescendo Zirvesi</td></tr>
+                <tr><td>♚ <strong>Şah</strong></td><td>-</td><td>Orkestral Gövde Akoru</td><td>Legato Pad (Barline Kelepçeli)</td></tr>
+                <tr><td>⚔️ <strong>Taş Yeme (Capture)</strong></td><td>-</td><td>Elenen Taş Puanı Kadar Ses</td><td>Çok Sesli Çarpışma Akoru</td></tr>
+                <tr><td>🔱 <strong>Çatal (Fork)</strong></td><td>-</td><td>2-Vuruş Crescendo</td><td>Fortissimo Sforzando (ffz)</td></tr>
+                <tr><td>⚡ <strong>Şiş (Skewer)</strong></td><td>-</td><td>Hat Arpeji Vurgusu</td><td>Subito Piano (Ani Sessizlik)</td></tr>
+                <tr><td>🔒 <strong>Açmaz (Pin)</strong></td><td>-</td><td>Titrek Gerilim Uğultusu</td><td>Yaylı Tremolo</td></tr>
               </tbody>
             </table>
           </div>

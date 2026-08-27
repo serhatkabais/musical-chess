@@ -1,31 +1,31 @@
 /**
- * Quantum Event Pool & Composition Engine
+ * Quantum Event Pool Engine (Section 1, 2, 4, 5, 6)
  * 
- * Core Data Structure: MoveEvent
- * Decouples musical time from chess mechanics and applies retroactive tonal/makam mutation.
+ * Karşılıklı İki Hamle = Tek Ölçü (Full Move = 1 Measure)
+ * Deterministik Dikey Referans Matrisi & Geriye Dönük Kuantum Mutasyon
  */
 
-import { getSquarePitch, getTonicFromSquare } from '../theory/squarePitchMapper.js';
+import { getSquarePitch, getTonicFromSquare, getKingDegreeChord, getCaptureClashChord } from '../theory/squarePitchMapper.js';
 import { mutatePitch } from '../theory/makamEngine.js';
 import { generateMoveMotif } from '../rhythm/motifEngine.js';
-import { scaleMotifToMeter } from '../rhythm/meterAdapter.js';
+import { scaleMotifToDialogueContainer } from '../rhythm/meterAdapter.js';
 import { calculateDynamics } from '../dynamics/tensionEngine.js';
-import { getInstrumentForMove } from '../orchestration/instrumentMapper.js';
+import { getStringsArticulation } from '../orchestration/instrumentMapper.js';
 
 export class QuantumEventPool {
   constructor() {
     this.events = [];
+    this.measures = [];
     this.finalTonic = null;
-    this.gameResult = null; // '1-0', '0-1', '1/2-1/2', '*'
+    this.gameResult = null;
   }
 
   /**
-   * Builds the raw Quantum Event Pool from move history and board analysis
-   * @param {Array<object>} rawMoves 
-   * @param {string} result 
+   * Builds the Quantum Event Pool from move history with tactical detection
    */
   buildFromGame(rawMoves, result = '*') {
     this.events = [];
+    this.measures = [];
     this.gameResult = result;
 
     const totalPlies = rawMoves.length;
@@ -43,7 +43,7 @@ export class QuantumEventPool {
       const isMate = Boolean(m.san && m.san.includes('#'));
       const isCastling = Boolean(m.san && (m.san.startsWith('O-O') || m.san.startsWith('0-0')));
 
-      // Calculate path & distance
+      // Distance
       const fromFile = from.charCodeAt(0) - 'a'.charCodeAt(0);
       const fromRank = parseInt(from[1], 10);
       const toFile = to.charCodeAt(0) - 'a'.charCodeAt(0);
@@ -53,37 +53,45 @@ export class QuantumEventPool {
       const dRank = Math.abs(toRank - fromRank);
       const distance = Math.max(dFile, dRank) || 1;
 
-      // Retreat detection (moving backwards towards home rank)
-      const isRetreat = side === 'w' ? (toRank < fromRank) : (toRank > fromRank);
+      // Tactical Detection: Fork, Skewer, Pin
+      const isFork = (piece === 'n' && isCheck && isCapture) || (m.san && m.san.includes('x') && distance >= 2 && isCheck);
+      const isSkewer = (['q', 'r', 'b'].includes(piece) && isCheck && distance >= 4);
+      const isPin = (m.flags && m.flags.includes('p')) || false;
 
-      // Raw Diatonic Pitches
+      // Pitches
       const sourcePitch = getSquarePitch(from);
       const targetPitch = getSquarePitch(to);
 
-      // Generate Path Squares
+      // Path for glissando / sliding
       const path = this.computePath(from, to, distance);
       const pathPitches = path.map(sq => getSquarePitch(sq));
 
-      // Tactical Flags
-      const tacticalFlags = [];
-      if (isCapture) tacticalFlags.push('capture');
-      if (isCheck) tacticalFlags.push('check');
-      if (isMate) tacticalFlags.push('mate');
-      if (isCastling) tacticalFlags.push('castling');
-      if (isRetreat) tacticalFlags.push('retreat');
+      // King Pad Chord or Capture Clash Chord
+      let kingChord = null;
+      if (piece === 'k') {
+        kingChord = getKingDegreeChord(to);
+      }
 
-      // Motif & Rhythms
+      let captureClashChord = null;
+      if (isCapture) {
+        captureClashChord = getCaptureClashChord(to, m.captured);
+      }
+
+      // Motif Generation (Section 4 & 5)
       const motif = generateMoveMotif({
         piece,
         distance,
         isCapture,
+        capturedPiece: m.captured,
         isCheck,
         isMate,
         isCastling,
-        isRetreat
+        isFork,
+        isSkewer,
+        isPin
       });
 
-      // Dynamics & Tension
+      // Dynamics (Section 5 & 7)
       const dynamics = calculateDynamics({
         piece,
         distance,
@@ -95,6 +103,17 @@ export class QuantumEventPool {
         capturedPiece: m.captured
       });
 
+      const articulationInfo = getStringsArticulation({
+        piece,
+        isCapture,
+        isCheck,
+        isMate,
+        isFork,
+        isSkewer,
+        isPin,
+        distance
+      });
+
       const event = {
         plyIndex,
         moveNumber,
@@ -103,21 +122,25 @@ export class QuantumEventPool {
         fromSquare: from,
         toSquare: to,
         san: m.san || '',
-        path,
         distance,
         isCapture,
         capturedPiece: m.captured || null,
         isCheck,
         isMate,
         isCastling,
-        promotion: m.promotion || null,
-        tacticalFlags,
+        isFork,
+        isSkewer,
+        isPin,
         sourcePitch,
         targetPitch,
         pathPitches,
+        kingChord,
+        captureClashChord,
         relativeRhythms: motif.relativeRhythms,
-        articulation: motif.articulation,
-        accentIndices: motif.accentIndices,
+        motifType: motif.type,
+        effect: motif.effect,
+        articulation: articulationInfo.technique,
+        articulationName: articulationInfo.name,
         velocity: dynamics.finalVelocity,
         velocityCurve: dynamics.velocityCurve,
         boardTension: dynamics.tension,
@@ -128,7 +151,7 @@ export class QuantumEventPool {
       this.events.push(event);
     });
 
-    // Determine Final Tonic from the last / checkmating square
+    // Final Tonic Extraction
     if (this.events.length > 0) {
       const finalEvent = this.events[this.events.length - 1];
       this.finalTonic = getTonicFromSquare(finalEvent.toSquare);
@@ -156,47 +179,64 @@ export class QuantumEventPool {
   }
 
   /**
-   * Renders the event pool into fully mutated, timed, and orchestrated sound instructions
-   * @param {object} options - { makamId, meterId, bpm, ensembleId, useRetroactiveTonic }
-   * @returns {Array<object>} Rendered events ready for audio synthesis and MIDI export
+   * Renders the event pool into Full Move = 1 Measure containers with Retroactive Mutation
    */
   renderComposition(options = {}) {
     const {
       makamId = 'rast',
       meterId = '4/4',
       bpm = 120,
-      ensembleId = 'symphonic',
       useRetroactiveTonic = true
     } = options;
 
     const targetTonicPC = useRetroactiveTonic && this.finalTonic ? this.finalTonic.pitchClass : null;
 
-    return this.events.map((ev) => {
-      // 1. Mutate Target Pitch into selected Makam / Tonal system with Microtonal Cents
+    const renderedEvents = this.events.map((ev) => {
+      // 1. Tonal / Makam Mutation with Cents
       const mutatedTarget = mutatePitch(ev.targetPitch.midi, makamId, targetTonicPC, ev.rankMotion);
+      const mutatedPath = ev.pathPitches.map(p => mutatePitch(p.midi, makamId, targetTonicPC, ev.rankMotion));
 
-      // Mutate path pitches for sliding glissando
-      const mutatedPath = ev.pathPitches.map((p) => mutatePitch(p.midi, makamId, targetTonicPC, ev.rankMotion));
+      let mutatedKingChord = null;
+      if (ev.kingChord) {
+        mutatedKingChord = ev.kingChord.map(k => mutatePitch(k.midi, makamId, targetTonicPC, 0));
+      }
 
-      // 2. Scale relative motif rhythms to the chosen Meter container
-      const timing = scaleMotifToMeter(ev.relativeRhythms, meterId, bpm);
+      let mutatedCaptureChord = null;
+      if (ev.captureClashChord) {
+        mutatedCaptureChord = ev.captureClashChord.map(c => mutatePitch(c.midi, makamId, targetTonicPC, 0));
+      }
 
-      // 3. Resolve Timbre / Instrument mapping
-      const instrument = getInstrumentForMove(ev.piece, ev.isCapture, ev.isCheck, ev.isMate, ensembleId);
+      // 2. Scale into Half-Measure Dialogue Container (Section 1)
+      const timing = scaleMotifToDialogueContainer(ev.relativeRhythms, ev.side, meterId, bpm);
 
       return {
         ...ev,
         mutatedTarget,
         mutatedPath,
+        mutatedKingChord,
+        mutatedCaptureChord,
         timing,
-        instrument,
         makamId,
         meterId,
         bpm,
-        ensembleId,
         appliedTonic: this.finalTonic
       };
     });
+
+    // Group into Measure Blocks (1 Full Move = 1 Measure)
+    this.measures = [];
+    for (let i = 0; i < renderedEvents.length; i += 2) {
+      const whiteEv = renderedEvents[i];
+      const blackEv = renderedEvents[i + 1] || null;
+      this.measures.push({
+        measureNumber: Math.floor(i / 2) + 1,
+        whiteEvent: whiteEv,
+        blackEvent: blackEv,
+        totalMeasureDurationSec: whiteEv.timing.measureDurationSec
+      });
+    }
+
+    return renderedEvents;
   }
 }
 

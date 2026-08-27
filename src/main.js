@@ -1,5 +1,6 @@
 /**
- * Symphonic & Makam Chess Composition Engine - Main Controller
+ * Symphonic Strings & Makam Chess Composition Engine - Main Controller
+ * (Complies fully with TEKNİK TASARIM MANİFESTOSU VE SİSTEM ŞARTNAMESİ)
  */
 
 import { ChessGame } from './chess/chessGame.js';
@@ -22,10 +23,7 @@ class App {
     // Composition Settings
     this.currentMakamId = 'rast';
     this.currentMeterId = '4/4';
-    this.currentEnsembleId = 'symphonic';
     this.useRetroactiveTonic = true;
-    this.useSustainLayer = true;
-    this.useTensionEngine = true;
     this.bpm = 120;
 
     // Playback state
@@ -74,15 +72,7 @@ class App {
       });
     }
 
-    // 3. Orchestration / Saz Heyeti Selector
-    const selectOrch = document.getElementById('select-orchestration');
-    if (selectOrch) {
-      selectOrch.addEventListener('change', (e) => {
-        this.currentEnsembleId = e.target.value;
-      });
-    }
-
-    // 4. Meter Adapter / Zaman Ölçüsü Selector
+    // 3. Meter Adapter / Zaman Ölçüsü Selector
     const selectMeter = document.getElementById('select-time-signature');
     if (selectMeter) {
       selectMeter.addEventListener('change', (e) => {
@@ -90,7 +80,7 @@ class App {
       });
     }
 
-    // 5. Switches (Retroactive Tonic, Sustain Layer, Tension Engine)
+    // 4. Retroactive Tonic Toggle
     const checkRetro = document.getElementById('check-retroactive-mutation');
     if (checkRetro) {
       checkRetro.addEventListener('change', (e) => {
@@ -99,21 +89,7 @@ class App {
       });
     }
 
-    const checkSustain = document.getElementById('check-sustain-layer');
-    if (checkSustain) {
-      checkSustain.addEventListener('change', (e) => {
-        this.useSustainLayer = e.target.checked;
-      });
-    }
-
-    const checkTension = document.getElementById('check-tension-engine');
-    if (checkTension) {
-      checkTension.addEventListener('change', (e) => {
-        this.useTensionEngine = e.target.checked;
-      });
-    }
-
-    // 6. Sliders (Tempo, Volume, Reverb)
+    // 5. Sliders (Tempo, Volume, Reverb)
     const inputTempo = document.getElementById('input-tempo');
     const bpmVal = document.getElementById('bpm-val');
     inputTempo.addEventListener('input', (e) => {
@@ -137,7 +113,7 @@ class App {
       symphonicSynth.setReverbLevel(val / 100);
     });
 
-    // 7. Mode & Theme
+    // 6. Mode & Theme
     const selectMode = document.getElementById('select-mode');
     selectMode.addEventListener('change', (e) => {
       this.game.mode = e.target.value;
@@ -149,7 +125,7 @@ class App {
       this.boardUI.setTheme(e.target.value);
     });
 
-    // 8. Tabs
+    // 7. Tabs
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -161,11 +137,10 @@ class App {
       });
     });
 
-    // 9. Playback & Export Buttons (Game / History)
+    // 8. Playback & Export Buttons
     document.getElementById('btn-play-song').addEventListener('click', () => this.playSong());
     document.getElementById('btn-stop-song').addEventListener('click', () => this.stopSong());
 
-    // Export MIDI Buttons (.btn-export-version)
     document.querySelectorAll('.btn-export-version').forEach(btn => {
       btn.addEventListener('click', () => {
         const target = btn.dataset.target;
@@ -178,7 +153,6 @@ class App {
       });
     });
 
-    // Export MusicXML Buttons
     const btnXmlMaster = document.getElementById('btn-export-xml-master');
     if (btnXmlMaster) {
       btnXmlMaster.addEventListener('click', () => this.exportMasterMusicXml());
@@ -189,7 +163,7 @@ class App {
       btnXmlGame.addEventListener('click', () => this.exportGameMusicXml());
     }
 
-    // 10. Custom PGN Loader
+    // 9. Custom PGN Loader
     const btnLoadPgn = document.getElementById('btn-load-custom-pgn');
     const inputPgn = document.getElementById('input-custom-pgn');
     if (btnLoadPgn && inputPgn) {
@@ -205,7 +179,6 @@ class App {
           this.updateTimeline();
           this.updateCompositionTonicUI();
           this.setAlert('PGN Başarıyla Yüklendi ve Senfoniye Dönüştürüldü! 🎼');
-          // Switch to History tab
           document.querySelector('.tab-btn[data-tab="tab-history"]').click();
         } else {
           alert('PGN formatı okunamadı. Lütfen standart PGN hamle formatını kontrol edin.');
@@ -213,7 +186,7 @@ class App {
       });
     }
 
-    // 11. Promotion Modal
+    // 10. Promotion Modal
     document.querySelectorAll('.choice-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const piece = btn.dataset.piece;
@@ -241,7 +214,6 @@ class App {
         makamId: this.currentMakamId,
         meterId: this.currentMeterId,
         bpm: this.bpm,
-        ensembleId: this.currentEnsembleId,
         useRetroactiveTonic: false
       });
       if (rendered[0]) {
@@ -341,13 +313,12 @@ class App {
     this.updateGameState();
     this.updateTimeline();
 
-    // Render Event in Quantum Pool and Synthesize
+    // Render Event in Quantum Pool & Synthesize
     quantumEventPool.buildFromGame(this.game.moveHistory);
     const renderedList = quantumEventPool.renderComposition({
       makamId: this.currentMakamId,
       meterId: this.currentMeterId,
       bpm: this.bpm,
-      ensembleId: this.currentEnsembleId,
       useRetroactiveTonic: this.useRetroactiveTonic
     });
 
@@ -380,7 +351,6 @@ class App {
             makamId: this.currentMakamId,
             meterId: this.currentMeterId,
             bpm: this.bpm,
-            ensembleId: this.currentEnsembleId,
             useRetroactiveTonic: this.useRetroactiveTonic
           });
 
@@ -462,11 +432,12 @@ class App {
     }
 
     if (moveEl) {
-      moveEl.textContent = `Hamle: ${renderedEvent.san || renderedEvent.toSquare} [${renderedEvent.instrument.name}]`;
+      moveEl.textContent = `Hamle: ${renderedEvent.san || renderedEvent.toSquare} [${renderedEvent.articulationName}]`;
     }
 
     if (durEl) {
-      durEl.textContent = `${renderedEvent.articulation} • ${renderedEvent.mutatedTarget.degreeName}`;
+      const sideName = renderedEvent.side === 'w' ? 'Beyaz (Ölçü 1. Yarısı)' : 'Siyah (Ölçü 2. Yarısı)';
+      durEl.textContent = `${sideName} • ${renderedEvent.mutatedTarget.degreeName}`;
     }
 
     if (tensionEl) {
@@ -503,7 +474,6 @@ class App {
           makamId: this.currentMakamId,
           meterId: this.currentMeterId,
           bpm: this.bpm,
-          ensembleId: this.currentEnsembleId,
           useRetroactiveTonic: this.useRetroactiveTonic
         });
         const ev = rendered[rendered.length - 1];
@@ -522,7 +492,7 @@ class App {
     if (alertEl) alertEl.textContent = text;
   }
 
-  // --- PLAYBACK COMPOSITION (SONG) ---
+  // --- PLAYBACK FULL MEASURE DIALOGUE ---
   playSong() {
     if (this.game.moveHistory.length === 0) {
       alert('Henüz hamle yapılmadı! Lütfen tahtada birkaç hamle oynayın veya bir usta maçı seçin.');
@@ -538,7 +508,6 @@ class App {
       makamId: this.currentMakamId,
       meterId: this.currentMeterId,
       bpm: this.bpm,
-      ensembleId: this.currentEnsembleId,
       useRetroactiveTonic: this.useRetroactiveTonic
     });
 
@@ -556,13 +525,12 @@ class App {
       symphonicSynth.playRenderedEvent(ev);
       this.updateNowPlaying(ev);
 
-      // Highlight corresponding chip in timeline
       const chips = document.querySelectorAll('.timeline-note-chip');
       chips.forEach((c, idx) => c.classList.toggle('playing', idx === currentStep));
 
-      const durationMs = ev.timing.totalDuration * 1000;
+      const durationMs = ev.timing.halfMeasureDurationSec * 1000;
       currentStep++;
-      this.songPlaybackTimer = setTimeout(playNext, Math.max(250, durationMs));
+      this.songPlaybackTimer = setTimeout(playNext, Math.max(200, durationMs));
     };
 
     playNext();
@@ -583,7 +551,7 @@ class App {
     document.querySelectorAll('.timeline-note-chip').forEach(c => c.classList.remove('playing'));
   }
 
-  // --- MASTER GAMES UI & CONTROLLER ---
+  // --- MASTER GAMES CONTROLLER ---
   initMasterGamesUI() {
     const selectGames = document.getElementById('select-famous-game');
     if (!selectGames) return;
@@ -678,10 +646,7 @@ class App {
       }
 
       this.stepMasterMove(1);
-
-      // Extract duration from timing
-      const move = this.selectedFamousGame.moves[this.masterCurrentMoveIndex - 1];
-      const speed = Math.max(300, (60000 / this.bpm) * 1.5);
+      const speed = Math.max(250, (60000 / this.bpm) * 1.2);
       this.masterTimer = setTimeout(playLoop, speed);
     };
 
@@ -736,7 +701,6 @@ class App {
         makamId: this.currentMakamId,
         meterId: this.currentMeterId,
         bpm: this.bpm,
-        ensembleId: this.currentEnsembleId,
         useRetroactiveTonic: this.useRetroactiveTonic
       });
 
@@ -764,7 +728,6 @@ class App {
       makamId: this.currentMakamId,
       meterId: meterId,
       bpm: this.bpm,
-      ensembleId: this.currentEnsembleId,
       useRetroactiveTonic: this.useRetroactiveTonic
     });
     downloadMidi(rendered, { bpm: this.bpm, meterId, title: 'My Chess Composition' }, `my_chess_${meterId.replace('/', '-')}.mid`);
@@ -780,7 +743,6 @@ class App {
       makamId: this.currentMakamId,
       meterId: meterId,
       bpm: this.bpm,
-      ensembleId: this.currentEnsembleId,
       useRetroactiveTonic: this.useRetroactiveTonic
     });
     downloadMidi(rendered, { bpm: this.bpm, meterId, title: this.selectedFamousGame.title }, `${this.selectedFamousGame.id}_${meterId.replace('/', '-')}.mid`);
@@ -796,7 +758,6 @@ class App {
       makamId: this.currentMakamId,
       meterId: this.currentMeterId,
       bpm: this.bpm,
-      ensembleId: this.currentEnsembleId,
       useRetroactiveTonic: this.useRetroactiveTonic
     });
     downloadMusicXml(rendered, { title: 'My Chess Score', composer: 'Musical Chess' }, 'my_chess_score.xml');
@@ -812,7 +773,6 @@ class App {
       makamId: this.currentMakamId,
       meterId: this.currentMeterId,
       bpm: this.bpm,
-      ensembleId: this.currentEnsembleId,
       useRetroactiveTonic: this.useRetroactiveTonic
     });
     downloadMusicXml(rendered, { title: this.selectedFamousGame.title, composer: `${this.selectedFamousGame.white} vs ${this.selectedFamousGame.black}` }, `${this.selectedFamousGame.id}_score.xml`);

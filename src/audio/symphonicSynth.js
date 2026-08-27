@@ -1,11 +1,12 @@
 /**
- * Symphonic & Makam Web Audio Synthesis Engine
+ * Homogeneous Symphonic Strings Ensemble Web Audio Engine (Section 3, 4, 5)
  * 
  * Features:
- * - Real-time microtonal cent detuning (koma perdeleri)
- * - Continuous Legato Sustain Layer (memory drone to barline)
- * - Authentic synthetic physical modeling for Western & Turkish instruments
- * - Dynamic velocity curves and articulation filters
+ * - Pure Homogeneous Strings Group (Violins, Violas, Cellos, Contrabasses)
+ * - Authentic string articulation models (Pizzicato, Spiccato, Legato, Detache, Tremolo, Pad Chords)
+ * - Real-time microtonal cent detuning
+ * - Strict Measure Clamp Rule (Ölçü Kelepçesi - Note-off on barline)
+ * - Tactical sfx (Clash Chords, Fork ffz, Skewer subito piano, Pin tremolo)
  */
 
 class SymphonicSynth {
@@ -20,8 +21,8 @@ class SymphonicSynth {
     this.reverbLevel = 0.45;
     this.isMuted = false;
 
-    // Active sustained voices (for continuous legato layer)
-    this.activeSustainNodes = [];
+    // Active nodes currently playing in this measure (for Ölçü Kelepçesi)
+    this.measureActiveNodes = [];
   }
 
   async ensureAudioContext() {
@@ -43,13 +44,13 @@ class SymphonicSynth {
 
   createReverbGraph() {
     const sampleRate = this.audioCtx.sampleRate;
-    const length = sampleRate * 2.8; // Warm 2.8s concert hall / dome acoustic
+    const length = sampleRate * 2.5;
     const impulse = this.audioCtx.createBuffer(2, length, sampleRate);
     const left = impulse.getChannelData(0);
     const right = impulse.getChannelData(1);
 
     for (let i = 0; i < length; i++) {
-      const decay = Math.exp(-i / (sampleRate * 0.8));
+      const decay = Math.exp(-i / (sampleRate * 0.75));
       left[i] = (Math.random() * 2 - 1) * decay;
       right[i] = (Math.random() * 2 - 1) * decay;
     }
@@ -91,129 +92,79 @@ class SymphonicSynth {
   }
 
   /**
-   * Play a rendered MoveEvent with its attack motif + continuous sustain layer
-   * @param {object} renderedEvent 
+   * Play a rendered MoveEvent with precise strings articulation
    */
   async playRenderedEvent(renderedEvent) {
     if (this.isMuted) return;
     await this.ensureAudioContext();
 
     const {
+      side,
       mutatedTarget,
       mutatedPath,
+      mutatedKingChord,
+      mutatedCaptureChord,
       timing,
-      instrument,
       velocity,
       velocityCurve,
       articulation,
-      isCapture,
-      isCheck,
-      isMate
+      effect
     } = renderedEvent;
 
     const ctx = this.audioCtx;
     const now = ctx.currentTime;
 
-    // Fade out previous sustain nodes smoothly
-    this.stopActiveSustains();
+    // If White's move (start of new measure), apply Ölçü Kelepçesi to cut previous measure residues
+    if (side === 'w') {
+      this.clampMeasureBarline();
+    }
 
     const attackDurations = timing.durationsInSeconds;
     let timeOffset = 0;
 
-    // 1. PLAY ATTACK MOTIF NOTES
+    // 1. PLAY MOTIF NOTES WITH STRINGS ARTICULATION
     attackDurations.forEach((dur, stepIdx) => {
       const stepPitch = (mutatedPath && mutatedPath[stepIdx]) ? mutatedPath[stepIdx] : mutatedTarget;
       const stepVel = (velocityCurve && velocityCurve[stepIdx]) ? velocityCurve[stepIdx] : velocity;
 
-      const triggerTime = now + timeOffset;
-
       setTimeout(() => {
         if (!this.audioCtx) return;
-        this.synthesizeInstrumentVoice({
+        this.synthesizeStringsVoice({
           frequency: stepPitch.freq,
           cents: stepPitch.cents,
           duration: dur,
           velocity: stepVel / 127.0,
-          instrumentCode: instrument.code,
-          articulation
+          articulation,
+          effect
         });
       }, timeOffset * 1000);
 
       timeOffset += dur;
     });
 
-    // 2. CONTINUOUS LEGATO SUSTAIN LAYER (Holding pitch to barline)
-    const sustainStartTime = now + timeOffset;
-    const sustainDuration = timing.sustainDuration;
+    // 2. KING DEGREE CHORD (Section 3: Orkestral Gövde Akoru)
+    if (mutatedKingChord && mutatedKingChord.length > 0) {
+      this.triggerKingBodyChord(mutatedKingChord, timing.halfMeasureDurationSec, velocity / 127.0);
+    }
 
-    setTimeout(() => {
-      if (!this.audioCtx) return;
-      this.triggerSustainLayer(mutatedTarget.freq, mutatedTarget.cents, sustainDuration, velocity / 127.0, instrument.code);
-    }, timeOffset * 1000);
+    // 3. CAPTURE CLASH CHORD (Section 5: Çarpışma Akoru)
+    if (mutatedCaptureChord && mutatedCaptureChord.length > 0) {
+      this.triggerCaptureClashChord(mutatedCaptureChord, velocity / 127.0);
+    }
 
-    // 3. TACTICAL ACCENT EFFECTS (Timpani on check, Tutti chord on mate)
-    if (isMate) {
-      this.triggerMateTutti(mutatedTarget.freq, timing.totalDuration);
-    } else if (isCheck) {
-      this.triggerCheckAccent(mutatedTarget.freq);
-    } else if (isCapture) {
-      this.triggerCapturePercussion();
+    // 4. Barline Clamp: If Black's move ends, schedule exact Barline Note-Off
+    if (timing.isBarlineEnd) {
+      setTimeout(() => {
+        this.clampMeasureBarline();
+      }, timing.halfMeasureDurationSec * 1000);
     }
   }
 
   /**
-   * Continuous Legato Sustain Layer
+   * Synthesizes strings voice based on articulation technique
    */
-  triggerSustainLayer(freq, cents, duration, velocity, instrumentCode) {
-    if (!this.audioCtx) return;
-    const ctx = this.audioCtx;
-    const now = ctx.currentTime;
-
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    const filter = ctx.createBiquadFilter();
-
-    osc.type = instrumentCode.includes('ney') || instrumentCode.includes('woodwind') ? 'sine' : 'sawtooth';
-    osc.frequency.setValueAtTime(freq, now);
-    osc.detune.setValueAtTime(cents || 0, now);
-
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(Math.min(freq * 2.5, 2400), now);
-
-    osc.connect(filter);
-    filter.connect(gain);
-    gain.connect(this.dryGain);
-    gain.connect(this.reverbNode);
-
-    const sustainVol = Math.max(0.12, velocity * 0.28);
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.linearRampToValueAtTime(sustainVol, now + 0.1);
-    gain.gain.setValueAtTime(sustainVol, now + duration * 0.8);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-
-    osc.start(now);
-    osc.stop(now + duration + 0.1);
-
-    this.activeSustainNodes.push({ osc, gain });
-  }
-
-  stopActiveSustains() {
-    if (!this.audioCtx) return;
-    const now = this.audioCtx.currentTime;
-    this.activeSustainNodes.forEach(({ gain, osc }) => {
-      try {
-        gain.gain.setTargetAtTime(0.0001, now, 0.04);
-        setTimeout(() => osc.stop(), 50);
-      } catch (e) {}
-    });
-    this.activeSustainNodes = [];
-  }
-
-  /**
-   * Synthesize specific orchestral/makam instrument timbre
-   */
-  synthesizeInstrumentVoice(params) {
-    const { frequency, cents, duration, velocity, instrumentCode, articulation } = params;
+  synthesizeStringsVoice(params) {
+    const { frequency, cents = 0, duration, velocity = 0.7, articulation, effect } = params;
     if (!this.audioCtx) return;
 
     const ctx = this.audioCtx;
@@ -223,85 +174,125 @@ class SymphonicSynth {
     voiceGain.connect(this.dryGain);
     voiceGain.connect(this.reverbNode);
 
-    switch (instrumentCode) {
-      // 1. VIOLIN / KANUN PIZZICATO (Pawn)
+    // Dynamic modifiers (Subito Piano, Sforzando ffz)
+    let finalVol = velocity;
+    if (effect === 'subito_piano') finalVol = 0.25;
+    else if (effect === 'crescendo_to_ffz') finalVol = Math.min(1.0, velocity * 1.35);
+
+    switch (articulation) {
+      // 1. PIZZICATO / SPICCATO (Piyon & At)
       case 'pizzicato':
-      case 'kanun_pizz': {
+      case 'staccato_pizz':
+      case 'spiccato_pizz': {
         const osc = ctx.createOscillator();
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(frequency, now);
         osc.detune.setValueAtTime(cents, now);
 
-        const click = ctx.createOscillator();
-        click.type = 'square';
-        click.frequency.setValueAtTime(frequency * 5, now);
-        const clickGain = ctx.createGain();
-        clickGain.gain.setValueAtTime(0.3 * velocity, now);
-        clickGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.02);
-        click.connect(clickGain);
-        clickGain.connect(voiceGain);
+        // String Pluck Transient
+        const pluck = ctx.createOscillator();
+        pluck.type = 'sawtooth';
+        pluck.frequency.setValueAtTime(frequency * 3.5, now);
+        const pluckGain = ctx.createGain();
+        pluckGain.gain.setValueAtTime(finalVol * 0.4, now);
+        pluckGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
+        pluck.connect(pluckGain);
+        pluckGain.connect(voiceGain);
 
         osc.connect(voiceGain);
 
-        const pizzDur = Math.min(duration, 0.35);
+        const pizzDur = Math.min(duration, 0.3);
         voiceGain.gain.setValueAtTime(0.0001, now);
-        voiceGain.gain.exponentialRampToValueAtTime(velocity * 0.95, now + 0.004);
+        voiceGain.gain.exponentialRampToValueAtTime(finalVol * 0.95, now + 0.005);
         voiceGain.gain.exponentialRampToValueAtTime(0.0001, now + pizzDur);
 
         osc.start(now);
-        click.start(now);
+        pluck.start(now);
         osc.stop(now + pizzDur + 0.05);
-        click.stop(now + 0.03);
+        pluck.stop(now + 0.04);
+        this.measureActiveNodes.push({ gain: voiceGain, osc });
         break;
       }
 
-      // 2. NEY / CLARINET (Knight)
-      case 'ney':
-      case 'woodwind': {
+      // 2. TREMOLO (Açmaz - Pin)
+      case 'tremolo': {
         const osc1 = ctx.createOscillator();
         const osc2 = ctx.createOscillator();
-        osc1.type = 'sine';
-        osc2.type = 'triangle';
+        osc1.type = 'sawtooth';
+        osc2.type = 'sawtooth';
         osc1.frequency.setValueAtTime(frequency, now);
-        osc2.frequency.setValueAtTime(frequency * 2, now); // Breath harmonic
+        osc2.frequency.setValueAtTime(frequency * 1.006, now);
         osc1.detune.setValueAtTime(cents, now);
-        osc2.detune.setValueAtTime(cents, now);
+        osc2.detune.setValueAtTime(cents + 5, now);
+
+        // Tremolo LFO Amplitude Modulation
+        const lfo = ctx.createOscillator();
+        lfo.type = 'sine';
+        lfo.frequency.setValueAtTime(14, now); // 14 Hz fast tremolo bowing
+        const lfoGain = ctx.createGain();
+        lfoGain.gain.setValueAtTime(0.4 * finalVol, now);
+        lfo.connect(lfoGain.gain);
 
         const filter = ctx.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.frequency.setValueAtTime(frequency * 1.8, now);
-        filter.Q.setValueAtTime(2.0, now);
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(Math.min(frequency * 3.2, 3600), now);
 
-        const osc2Gain = ctx.createGain();
-        osc2Gain.gain.setValueAtTime(0.18, now);
-
-        osc1.connect(voiceGain);
-        osc2.connect(osc2Gain);
-        osc2Gain.connect(filter);
+        osc1.connect(filter);
+        osc2.connect(filter);
         filter.connect(voiceGain);
 
         voiceGain.gain.setValueAtTime(0.0001, now);
-        voiceGain.gain.linearRampToValueAtTime(velocity * 0.8, now + 0.03);
-        voiceGain.gain.exponentialRampToValueAtTime(0.0001, now + duration + 0.1);
+        voiceGain.gain.linearRampToValueAtTime(finalVol * 0.85, now + 0.03);
+        voiceGain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
         osc1.start(now);
         osc2.start(now);
-        osc1.stop(now + duration + 0.15);
-        osc2.stop(now + duration + 0.15);
+        lfo.start(now);
+        osc1.stop(now + duration + 0.05);
+        osc2.stop(now + duration + 0.05);
+        lfo.stop(now + duration + 0.05);
+        this.measureActiveNodes.push({ gain: voiceGain, osc: osc1 });
         break;
       }
 
-      // 3. VIOLINS LEGATO / TANBUR & KANUN (Bishop)
-      case 'strings_legato':
-      case 'tanbur_kanun': {
+      // 3. DETACHE / HEAVY CELLO & BASS (Kale)
+      case 'detache':
+      case 'detache_heavy': {
+        const osc = ctx.createOscillator();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(frequency, now);
+        osc.detune.setValueAtTime(cents, now);
+
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(Math.min(frequency * 2.2, 2200), now);
+
+        osc.connect(filter);
+        filter.connect(voiceGain);
+
+        voiceGain.gain.setValueAtTime(0.0001, now);
+        voiceGain.gain.linearRampToValueAtTime(finalVol * 0.9, now + 0.04);
+        voiceGain.gain.exponentialRampToValueAtTime(0.0001, now + duration + 0.1);
+
+        osc.start(now);
+        osc.stop(now + duration + 0.15);
+        this.measureActiveNodes.push({ gain: voiceGain, osc });
+        break;
+      }
+
+      // 4. LEGATO / CANTONABILE / CASCADE (Fil, Vezir)
+      case 'legato':
+      case 'legato_arpeggio':
+      case 'legato_crescendo':
+      default: {
         const osc1 = ctx.createOscillator();
         const osc2 = ctx.createOscillator();
         osc1.type = 'sawtooth';
         osc2.type = 'triangle';
         osc1.frequency.setValueAtTime(frequency, now);
-        osc2.frequency.setValueAtTime(frequency * 1.004, now); // Chorus
+        osc2.frequency.setValueAtTime(frequency * 1.004, now);
         osc1.detune.setValueAtTime(cents, now);
-        osc2.detune.setValueAtTime(cents + 4, now);
+        osc2.detune.setValueAtTime(cents + 3, now);
 
         const filter = ctx.createBiquadFilter();
         filter.type = 'lowpass';
@@ -312,152 +303,107 @@ class SymphonicSynth {
         filter.connect(voiceGain);
 
         voiceGain.gain.setValueAtTime(0.0001, now);
-        voiceGain.gain.linearRampToValueAtTime(velocity * 0.85, now + 0.04);
-        voiceGain.gain.exponentialRampToValueAtTime(0.0001, now + duration + 0.15);
+        voiceGain.gain.linearRampToValueAtTime(finalVol * 0.85, now + 0.03);
+        voiceGain.gain.exponentialRampToValueAtTime(0.0001, now + duration + 0.1);
 
         osc1.start(now);
         osc2.start(now);
-        osc1.stop(now + duration + 0.2);
-        osc2.stop(now + duration + 0.2);
-        break;
-      }
-
-      // 4. CELLO / FRENCH HORN (Rook)
-      case 'cello_horn':
-      case 'kemence_cello': {
-        const osc = ctx.createOscillator();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(frequency, now);
-        osc.detune.setValueAtTime(cents, now);
-
-        const filter = ctx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(Math.min(frequency * 2.2, 1800), now);
-
-        osc.connect(filter);
-        filter.connect(voiceGain);
-
-        voiceGain.gain.setValueAtTime(0.0001, now);
-        voiceGain.gain.linearRampToValueAtTime(velocity * 0.9, now + 0.05);
-        voiceGain.gain.exponentialRampToValueAtTime(0.0001, now + duration + 0.2);
-
-        osc.start(now);
-        osc.stop(now + duration + 0.25);
-        break;
-      }
-
-      // 5. FULL STRINGS & BRASS / MAKAM TUTTI (Queen)
-      case 'brass_strings':
-      case 'makam_strings': {
-        const freqs = [frequency, frequency * 1.5, frequency * 2]; // Rich royal chord
-        freqs.forEach((f, idx) => {
-          const o = ctx.createOscillator();
-          o.type = idx === 0 ? 'sawtooth' : 'triangle';
-          o.frequency.setValueAtTime(f, now);
-          o.detune.setValueAtTime(cents, now);
-
-          const g = ctx.createGain();
-          g.gain.setValueAtTime(velocity * (0.6 / (idx + 1)), now);
-
-          o.connect(g);
-          g.connect(voiceGain);
-
-          o.start(now);
-          o.stop(now + duration + 0.3);
-        });
-
-        voiceGain.gain.setValueAtTime(0.0001, now);
-        voiceGain.gain.linearRampToValueAtTime(1.0, now + 0.03);
-        voiceGain.gain.exponentialRampToValueAtTime(0.0001, now + duration + 0.3);
-        break;
-      }
-
-      // 6. CONTRABASS & DEEP UD (King)
-      case 'contrabass':
-      case 'deep_ud':
-      default: {
-        const osc = ctx.createOscillator();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(frequency * 0.5, now); // Deep low octave
-        osc.detune.setValueAtTime(cents, now);
-
-        osc.connect(voiceGain);
-
-        voiceGain.gain.setValueAtTime(0.0001, now);
-        voiceGain.gain.linearRampToValueAtTime(velocity * 0.85, now + 0.08);
-        voiceGain.gain.exponentialRampToValueAtTime(0.0001, now + duration + 0.3);
-
-        osc.start(now);
-        osc.stop(now + duration + 0.35);
+        osc1.stop(now + duration + 0.12);
+        osc2.stop(now + duration + 0.12);
+        this.measureActiveNodes.push({ gain: voiceGain, osc: osc1 });
         break;
       }
     }
   }
 
-  // TACTICAL SFX
-  triggerCapturePercussion() {
+  /**
+   * King Degree Chord (Section 3: Orkestral Yaylı Gövde Akoru)
+   */
+  triggerKingBodyChord(chordPitches, duration, velocity) {
     if (!this.audioCtx) return;
-    const now = this.audioCtx.currentTime;
-    const osc = this.audioCtx.createOscillator();
-    const gain = this.audioCtx.createGain();
+    const ctx = this.audioCtx;
+    const now = ctx.currentTime;
 
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(120, now);
-    osc.frequency.exponentialRampToValueAtTime(40, now + 0.12);
+    chordPitches.forEach((pitch, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
 
-    gain.gain.setValueAtTime(0.4, now);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+      osc.type = (idx % 2 === 0) ? 'sawtooth' : 'triangle';
+      osc.frequency.setValueAtTime(pitch.freq, now);
+      osc.detune.setValueAtTime(pitch.cents || 0, now);
 
-    osc.connect(gain);
-    gain.connect(this.dryGain);
-    osc.start(now);
-    osc.stop(now + 0.18);
-  }
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(Math.min(pitch.freq * 2.0, 1800), now);
 
-  triggerCheckAccent(freq) {
-    if (!this.audioCtx) return;
-    const now = this.audioCtx.currentTime;
-    // Dramatic Timpani sforzando Ping
-    const timpani = this.audioCtx.createOscillator();
-    const timpGain = this.audioCtx.createGain();
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.dryGain);
+      gain.connect(this.reverbNode);
 
-    timpani.type = 'sine';
-    timpani.frequency.setValueAtTime(freq * 0.5, now);
-    timpani.frequency.exponentialRampToValueAtTime(freq * 0.25, now + 0.4);
+      const chordVol = (velocity * 0.35) / chordPitches.length;
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.linearRampToValueAtTime(chordVol, now + 0.08);
+      gain.gain.setValueAtTime(chordVol, now + duration * 0.85);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
-    timpGain.gain.setValueAtTime(0.7, now);
-    timpGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
-
-    timpani.connect(timpGain);
-    timpGain.connect(this.dryGain);
-    timpani.start(now);
-    timpani.stop(now + 0.55);
-  }
-
-  triggerMateTutti(freq, totalDuration) {
-    if (!this.audioCtx) return;
-    const now = this.audioCtx.currentTime;
-    const chordFrequencies = [freq * 0.5, freq, freq * 1.25, freq * 1.5, freq * 2];
-
-    chordFrequencies.forEach((f, idx) => {
-      setTimeout(() => {
-        if (!this.audioCtx) return;
-        const o = this.audioCtx.createOscillator();
-        const g = this.audioCtx.createGain();
-        o.type = 'sawtooth';
-        o.frequency.setValueAtTime(f, this.audioCtx.currentTime);
-
-        g.gain.setValueAtTime(0.3, this.audioCtx.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.0001, this.audioCtx.currentTime + 2.5);
-
-        o.connect(g);
-        g.connect(this.dryGain);
-        g.connect(this.reverbNode);
-
-        o.start(this.audioCtx.currentTime);
-        o.stop(this.audioCtx.currentTime + 2.6);
-      }, idx * 60);
+      osc.start(now);
+      osc.stop(now + duration + 0.05);
+      this.measureActiveNodes.push({ gain, osc });
     });
+  }
+
+  /**
+   * Capture Clash Chord (Section 5: Çarpışma Akoru)
+   */
+  triggerCaptureClashChord(clashPitches, velocity) {
+    if (!this.audioCtx) return;
+    const ctx = this.audioCtx;
+    const now = ctx.currentTime;
+
+    clashPitches.forEach((p, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(p.freq, now);
+      osc.detune.setValueAtTime(p.cents || 0, now);
+
+      osc.connect(gain);
+      gain.connect(this.dryGain);
+      gain.connect(this.reverbNode);
+
+      const vol = (velocity * 0.45) / clashPitches.length;
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(vol, now + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+
+      osc.start(now);
+      osc.stop(now + 0.4);
+      this.measureActiveNodes.push({ gain, osc });
+    });
+  }
+
+  /**
+   * Ölçü Kelepçesi (Measure Clamp):
+   * Clamps and fades out all active voices at the measure barline.
+   */
+  clampMeasureBarline() {
+    if (!this.audioCtx) return;
+    const now = this.audioCtx.currentTime;
+    this.measureActiveNodes.forEach(({ gain, osc }) => {
+      try {
+        gain.gain.setTargetAtTime(0.0001, now, 0.02);
+        setTimeout(() => {
+          try { osc.stop(); } catch (e) {}
+        }, 30);
+      } catch (e) {}
+    });
+    this.measureActiveNodes = [];
+  }
+
+  stopActiveSustains() {
+    this.clampMeasureBarline();
   }
 }
 

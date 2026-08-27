@@ -1,17 +1,37 @@
 /**
- * Meter Adapter & Time Container Engine
- * Adapts relative move rhythms into selected musical meters:
- * 2/4 (March), 3/4 (Waltz), 4/4 (Symphonic), 5/8 (Aksak 3+2), 7/8 (Devr-i Hindi 3+2+2 / 2+2+3 / 2+3+2)
+ * Meter Adapter & Measure Container Engine (Section 1 & 6B)
+ * 
+ * Karşılıklı İki Hamle = Tek Ölçü Düzeni (Full Move = 1 Measure)
+ * - 4/4: 1 Measure = 4 beats (White: 2 beats | Black: 2 beats)
+ * - 3/4: 1 Measure = 3 beats (White: 1.5 beats | Black: 1.5 beats)
+ * - 5/8: 1 Measure = 2.5 beats / 5 eighths (White: 1.5 beats / 3 eighths | Black: 1.0 beat / 2 eighths)
+ * - 7/8: 1 Measure = 3.5 beats / 7 eighths (White: 2.0 beats / 4 eighths | Black: 1.5 beats / 3 eighths)
+ * 
+ * Ölçü Kelepçesi (Measure Clamp):
+ * Ölçü çizgisi (Barline) bittiğinde tüm sesler ve akorlar KESİN OLARAK KESİLİR (Note-Off).
  */
 
 export const METERS = {
+  '4/4': {
+    id: '4/4',
+    name: "4/4'lük Senfonik Standart",
+    icon: '🎼',
+    measureBeats: 4.0,
+    whiteShareBeats: 2.0,
+    blackShareBeats: 2.0,
+    subdivisions: [1, 1, 1, 1],
+    description: '1 Tam Hamle = 1 Ölçü (Beyaz: 2 Vuruş | Siyah: 2 Vuruş)',
+    midiTimeSig: [0x04, 0x02, 0x18, 0x08]
+  },
   '2/4': {
     id: '2/4',
-    name: "2/4'lük Marş",
+    name: "2/4'lük Marş (Allegro)",
     icon: '🥁',
     measureBeats: 2.0,
+    whiteShareBeats: 1.0,
+    blackShareBeats: 1.0,
     subdivisions: [1, 1],
-    description: 'Keskin, hızlı ve mekanik yürüyüş (1 - 2)',
+    description: 'Keskin, hızlı ve mekanik askeri yürüyüş (Beyaz: 1 Vuruş | Siyah: 1 Vuruş)',
     midiTimeSig: [0x02, 0x02, 0x18, 0x08]
   },
   '3/4': {
@@ -19,35 +39,32 @@ export const METERS = {
     name: "3/4'lük Zarif Vals",
     icon: '💃',
     measureBeats: 3.0,
+    whiteShareBeats: 1.5,
+    blackShareBeats: 1.5,
     subdivisions: [1, 1, 1],
     description: 'Akıcı, danssal ve romantik 1-2-3 salınımı',
     midiTimeSig: [0x03, 0x02, 0x18, 0x08]
-  },
-  '4/4': {
-    id: '4/4',
-    name: "4/4'lük Senfonik Standart",
-    icon: '🎼',
-    measureBeats: 4.0,
-    subdivisions: [1, 1, 1, 1],
-    description: 'Görkemli, dengeli ve zengin orkestral ölçü',
-    midiTimeSig: [0x04, 0x02, 0x18, 0x08]
   },
   '5/8': {
     id: '5/8',
     name: "5/8'lik Aksak (3+2)",
     icon: '⚡',
-    measureBeats: 2.5, // 5 eighth notes = 2.5 quarter beats
-    subdivisions: [1.5, 1.0], // 3 eighths + 2 eighths
-    description: 'Aksak, dinamik ve sürükleyici Türk ritim formu (Düm-tek-tek Düm-tek)',
+    measureBeats: 2.5,
+    whiteShareBeats: 1.5, // 3 eighth notes
+    blackShareBeats: 1.0, // 2 eighth notes
+    subdivisions: [1.5, 1.0],
+    description: 'Aksak soru-cevap ritmi (Beyaz: 3/8 Soru | Siyah: 2/8 Cevap)',
     midiTimeSig: [0x05, 0x03, 0x18, 0x08]
   },
   '7/8_322': {
     id: '7/8_322',
     name: "7/8'lik Devr-i Hindi (3+2+2)",
     icon: '🌀',
-    measureBeats: 3.5, // 7 eighth notes = 3.5 quarter beats
+    measureBeats: 3.5,
+    whiteShareBeats: 2.0, // 4 eighth notes
+    blackShareBeats: 1.5, // 3 eighth notes
     subdivisions: [1.5, 1.0, 1.0],
-    description: 'Klasik 7/8 aksak ölçüsü: Düm-tek-tek Düm-tek Düm-tek',
+    description: 'Klasik Türk Aksağı (Düm-tek-tek Düm-tek Düm-tek)',
     midiTimeSig: [0x07, 0x03, 0x18, 0x08]
   },
   '7/8_223': {
@@ -55,6 +72,8 @@ export const METERS = {
     name: "7/8'lik Laz Havası (2+2+3)",
     icon: '🌊',
     measureBeats: 3.5,
+    whiteShareBeats: 1.5,
+    blackShareBeats: 2.0,
     subdivisions: [1.0, 1.0, 1.5],
     description: 'Enerjik ve progresif Karadeniz / Balkan aksak ritmi',
     midiTimeSig: [0x07, 0x03, 0x18, 0x08]
@@ -64,6 +83,8 @@ export const METERS = {
     name: "7/8'lik Curcuna (2+3+2)",
     icon: '🎭',
     measureBeats: 3.5,
+    whiteShareBeats: 1.75,
+    blackShareBeats: 1.75,
     subdivisions: [1.0, 1.5, 1.0],
     description: 'Kıvrak, poliritmik ve entelektüel senkoplu ölçü',
     midiTimeSig: [0x07, 0x03, 0x18, 0x08]
@@ -71,35 +92,35 @@ export const METERS = {
 };
 
 /**
- * Scales a relative rhythm array to fit cleanly inside a measure container
+ * Scales move motif into its assigned half-measure dialogue container
  * @param {Array<number>} relativeRhythms 
+ * @param {string} side - 'w' or 'b'
  * @param {string} meterId 
  * @param {number} bpm 
- * @returns {{ durationsInSeconds: Array<number>, totalDuration: number, sustainDuration: number }}
+ * @returns {{ durationsInSeconds: Array<number>, halfMeasureDurationSec: number, measureDurationSec: number, isBarlineEnd: boolean }}
  */
-export function scaleMotifToMeter(relativeRhythms, meterId = '4/4', bpm = 120) {
+export function scaleMotifToDialogueContainer(relativeRhythms, side = 'w', meterId = '4/4', bpm = 120) {
   const meter = METERS[meterId] || METERS['4/4'];
   const quarterDurationSec = 60.0 / bpm;
 
   const measureDurationSec = meter.measureBeats * quarterDurationSec;
+  const allocatedBeats = (side === 'w') ? meter.whiteShareBeats : meter.blackShareBeats;
+  const halfMeasureDurationSec = allocatedBeats * quarterDurationSec;
 
-  // Sum of relative rhythms in the motif
-  const relSum = relativeRhythms.reduce((acc, v) => acc + v, 0);
+  const relSum = relativeRhythms.reduce((acc, v) => acc + v, 0) || 1.0;
 
-  // Allocate attack durations proportionally (taking up at most 75% of measure to allow sustain tail)
-  const attackRatio = Math.min(0.75, Math.max(0.3, relSum / (meter.measureBeats || 4.0)));
-  const totalAttackTimeSec = measureDurationSec * attackRatio;
+  // Distribute attack durations strictly within half-measure container
+  const attackRatio = 0.85; // Leave 15% for clean articulation gap or sustain clamp
+  const totalAttackTime = halfMeasureDurationSec * attackRatio;
 
-  const durationsInSeconds = relativeRhythms.map(r => (r / relSum) * totalAttackTimeSec);
-
-  // Continuous Legato Layer: remaining measure time is sustained to the barline!
-  const attackTotal = durationsInSeconds.reduce((a, b) => a + b, 0);
-  const sustainDuration = Math.max(0.2, measureDurationSec - attackTotal);
+  const durationsInSeconds = relativeRhythms.map(r => (r / relSum) * totalAttackTime);
+  const isBarlineEnd = (side === 'b'); // Siyahın hamlesi ölçü çizgisinde biter!
 
   return {
     durationsInSeconds,
-    totalDuration: measureDurationSec,
-    sustainDuration,
+    halfMeasureDurationSec,
+    measureDurationSec,
+    isBarlineEnd,
     meter
   };
 }
